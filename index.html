@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Barbudo Empujones v2</title>
-  <meta name="description" content="Juego de dos jugadores inspirado en Barbudo: apuesta cuántas fichas vas a tirar del tablero, y ni una más.">
+  <title>Barbudo Shove</title>
+  <meta name="description" content="A two-player board game inspired by the card game Barbudo. Bet how many of your pieces will cross the board, then make it happen. No more, no less.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
@@ -13,28 +13,28 @@
 <body>
   <header class="top">
     <div>
-      <h1>Barbudo Empujones <span class="ver">v2</span></h1>
-      <p class="tagline">Apuesta cuántas caídas vas a anotarte. Ni una más, ni una menos.</p>
+      <h1>Barbudo Shove <span class="ver">v3</span></h1>
+      <p class="tagline">Bet how many of your pieces will cross the board. Not one more, not one fewer.</p>
     </div>
-    <button type="button" id="new-game" class="btn primary">Nueva partida</button>
+    <button type="button" id="new-game" class="btn primary">New game</button>
   </header>
 
   <main class="layout">
-    <section class="board-col" aria-label="Tablero">
-      <div id="board" class="board" role="group" aria-label="Tablero de 4 por 4"></div>
-      <p class="board-note">Tú eres azul y avanzas hacia arriba. El rival es rojo y avanza hacia abajo. El número es el rango: gana el más alto.</p>
-      <div id="actions" class="actions" aria-label="Movimientos posibles"></div>
+    <section class="board-col" aria-label="Board">
+      <div id="board" class="board" role="group" aria-label="4 by 4 board"></div>
+      <p class="board-note">You are blue and move up. The rival is red and moves down. The number on each piece is its rank: higher beats lower.</p>
+      <div id="actions" class="actions" aria-label="Possible moves"></div>
     </section>
 
-    <section class="panel-col" aria-label="Marcador">
+    <section class="panel-col" aria-label="Scoreboard">
       <div id="bid-box" class="card bid-box">
-        <label for="bid-range" class="bid-label">¿Cuántas caídas te vas a anotar?</label>
+        <label for="bid-range" class="bid-label">How many of your pieces will cross the board?</label>
         <div class="bid-row">
-          <input type="range" id="bid-range" min="0" max="8" value="4" step="1">
-          <output id="bid-value" for="bid-range" class="bid-number">4</output>
+          <input type="range" id="bid-range" min="0" max="4" value="2" step="1">
+          <output id="bid-value" for="bid-range" class="bid-number">2</output>
         </div>
-        <p class="hint">El rival no podrá apostar <strong id="forbidden">4</strong>, porque las dos apuestas no pueden sumar 8.</p>
-        <button type="button" id="bid-go" class="btn primary">Apostar y empezar</button>
+        <p class="hint">The rival can't bid <strong id="forbidden">2</strong>, because the two bids can't add up to 4.</p>
+        <button type="button" id="bid-go" class="btn primary">Place bid and start</button>
       </div>
 
       <div id="you" class="card score"></div>
@@ -43,32 +43,30 @@
       <div id="result" class="card result" hidden></div>
 
       <p id="status" class="status" role="status" aria-live="polite"></p>
-      <ol id="log" class="log" aria-label="Últimas jugadas"></ol>
+      <ol id="log" class="log" aria-label="Recent moves"></ol>
     </section>
   </main>
 
   <section class="rules">
     <details>
-      <summary>Cómo se juega</summary>
+      <summary>How to play</summary>
       <div class="rules-body">
-        <p>Cada jugador tiene 4 fichas con rangos del 1 al 4 (el número que ves en cada una), frente a frente en un tablero de 4×4. Antes de empezar, cada quien apuesta cuántas caídas se va a anotar. Las dos apuestas no pueden sumar 8.</p>
-        <p>En tu turno haces <b>una</b> de estas dos cosas:</p>
-        <p><b>Avanzar</b> una ficha un paso. Si la casilla de adelante está libre, avanzas. Si es el final del tablero, la ficha sale. Si está ocupada, solo puedes entrar si tu rango es <b>mayor</b> que el de la ficha que está ahí; entonces la empujas hacia un lado (tú eliges), junto con todas las que la tocan en esa dirección. Con rango igual o menor, esa ficha está bloqueada.</p>
-        <p><b>Dar un paso lateral</b> (tienes 3 en toda la partida): mueves una de tus fichas una casilla a la izquierda o a la derecha, a una casilla vacía o cambiándola de lugar con otra ficha tuya. Sirve para acomodar tus rangos, o para ganar un turno.</p>
-        <p>Una ficha que sale del tablero es una caída, y se la anota quien movió, sea de quien sea la ficha. Nadie retrocede, así que al final caen las 8 fichas.</p>
-        <p>Si un jugador no puede moverse, pasa. Si ninguno puede, las fichas que quedan en el tablero cuentan como caídas para su dueño.</p>
-        <p>Gana quien termine más cerca de su apuesta. Pasarse es tan malo como quedarse corto.</p>
-        <p><strong>Regalando.</strong> Si las apuestas suman menos de 8, sobran caídas que nadie quiere: la partida es una carrera por no ser quien se las anote.<br>
-           <strong>Peleando.</strong> Si suman más de 8, los dos quieren más de las que hay: conviene empujar filas llenas cuanto antes.</p>
+        <p>Each player has 4 pieces, ranked 1 to 4 (the number you see on each one), facing each other on a 4×4 board. Before the first move, each player bets how many of their own pieces will <b>cross the board</b>. The two bets can't add up to 4.</p>
+        <p>On your turn you do <b>one</b> of these two things:</p>
+        <p><b>Advance</b> one piece one step. If the square ahead is empty, you move into it. If you are at the far edge, the piece walks off and has <b>crossed</b>: +1 for you. If the square ahead is occupied, you can only enter it if your rank is <b>higher</b> than the piece there. Then you shove that piece, and every piece touching it in the direction you choose, one square sideways. A piece shoved off the side is <b>lost</b> and counts for nobody. With an equal or lower rank, your piece is blocked.</p>
+        <p><b>Sidestep</b> (you get 3 in the whole game): move one of your pieces one square left or right, into an empty square or swapping places with another of your pieces. Use it to rearrange your ranks, or to wait a turn.</p>
+        <p>Pieces never move backward, so the game always ends. If a player has no legal move they pass. If nobody can move, the pieces left on the board are stuck and count for nobody.</p>
+        <p>Whoever ends closest to their bet wins. Going over is as bad as falling short, and a tie in distance is a draw.</p>
+        <p>You are not forced to cross. Pieces you don't want to cross can be shoved off the side by your rival, who might do it if it helps them. And your rival can leave you no safe moves, so a piece you wanted to keep has to walk across.</p>
       </div>
     </details>
   </section>
 
   <footer class="foot">
-    Inspirado en Barbudo, el juego de cartas de la familia González del Riego. Proyecto de diseño para GamesCrafters.
+    Inspired by Barbudo, the González del Riego family card game. A GamesCrafters design project.
   </footer>
 
-  <noscript><p class="status">Este juego necesita JavaScript para funcionar.</p></noscript>
+  <noscript><p class="status">This game needs JavaScript to run.</p></noscript>
   <script src="game.js"></script>
   <script src="ui.js"></script>
 </body>
