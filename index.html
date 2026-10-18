@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Barbudo Empujones</title>
+  <title>Barbudo Empujones v2</title>
   <meta name="description" content="Juego de dos jugadores inspirado en Barbudo: apuesta cuántas fichas vas a tirar del tablero, y ni una más.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,7 @@
 <body>
   <header class="top">
     <div>
-      <h1>Barbudo Empujones</h1>
+      <h1>Barbudo Empujones <span class="ver">v2</span></h1>
       <p class="tagline">Apuesta cuántas caídas vas a anotarte. Ni una más, ni una menos.</p>
     </div>
     <button type="button" id="new-game" class="btn primary">Nueva partida</button>
@@ -22,7 +22,7 @@
   <main class="layout">
     <section class="board-col" aria-label="Tablero">
       <div id="board" class="board" role="group" aria-label="Tablero de 4 por 4"></div>
-      <p class="board-note">Tú eres azul y avanzas hacia arriba. El rival es rojo y avanza hacia abajo.</p>
+      <p class="board-note">Tú eres azul y avanzas hacia arriba. El rival es rojo y avanza hacia abajo. El número es el rango: gana el más alto.</p>
       <div id="actions" class="actions" aria-label="Movimientos posibles"></div>
     </section>
 
@@ -51,9 +51,12 @@
     <details>
       <summary>Cómo se juega</summary>
       <div class="rules-body">
-        <p>Cada jugador tiene 4 fichas, frente a frente en un tablero de 4×4. Antes de empezar, cada quien apuesta cuántas caídas se va a anotar. Las dos apuestas no pueden sumar 8.</p>
-        <p>En tu turno mueves una ficha un paso hacia adelante. Si la casilla de adelante está libre, avanzas. Si es el final del tablero, la ficha sale. Si está ocupada, entras y empujas hacia un lado (tú eliges): la ficha que estaba ahí y todas las que la tocan en esa dirección se mueven una casilla.</p>
+        <p>Cada jugador tiene 4 fichas con rangos del 1 al 4 (el número que ves en cada una), frente a frente en un tablero de 4×4. Antes de empezar, cada quien apuesta cuántas caídas se va a anotar. Las dos apuestas no pueden sumar 8.</p>
+        <p>En tu turno haces <b>una</b> de estas dos cosas:</p>
+        <p><b>Avanzar</b> una ficha un paso. Si la casilla de adelante está libre, avanzas. Si es el final del tablero, la ficha sale. Si está ocupada, solo puedes entrar si tu rango es <b>mayor</b> que el de la ficha que está ahí; entonces la empujas hacia un lado (tú eliges), junto con todas las que la tocan en esa dirección. Con rango igual o menor, esa ficha está bloqueada.</p>
+        <p><b>Dar un paso lateral</b> (tienes 3 en toda la partida): mueves una de tus fichas una casilla a la izquierda o a la derecha, a una casilla vacía o cambiándola de lugar con otra ficha tuya. Sirve para acomodar tus rangos, o para ganar un turno.</p>
         <p>Una ficha que sale del tablero es una caída, y se la anota quien movió, sea de quien sea la ficha. Nadie retrocede, así que al final caen las 8 fichas.</p>
+        <p>Si un jugador no puede moverse, pasa. Si ninguno puede, las fichas que quedan en el tablero cuentan como caídas para su dueño.</p>
         <p>Gana quien termine más cerca de su apuesta. Pasarse es tan malo como quedarse corto.</p>
         <p><strong>Regalando.</strong> Si las apuestas suman menos de 8, sobran caídas que nadie quiere: la partida es una carrera por no ser quien se las anote.<br>
            <strong>Peleando.</strong> Si suman más de 8, los dos quieren más de las que hay: conviene empujar filas llenas cuanto antes.</p>

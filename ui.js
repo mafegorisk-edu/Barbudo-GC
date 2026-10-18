@@ -1,5 +1,5 @@
 /*
-  Barbudo Empujones: the screen.
+  Barbudo Empujones v2: the screen.
   Draws the board and the scoreboard, reacts to clicks, and asks game.js
   for the rules and for the rival's moves. All rules live in game.js.
 */
@@ -7,20 +7,21 @@
   'use strict';
 
   const G = window.Game;
-  const RIVAL_DEPTH = 6;     // how many turns ahead the rival thinks
-  const RIVAL_DELAY_MS = 700; // pause so you can see what happened
+  const RIVAL_DEPTH = 8;      // how many turns ahead the rival thinks
+  const RIVAL_DELAY_MS = 800; // pause so you can see what happened
 
   // ---- State ----
   let S;
 
   function freshState() {
     return {
-      board: G.newBoard(),
+      st: G.newState(),  // { board, tokens }
       a: 0, b: 0,        // bids: yours and the rival's
       ca: 0, cb: 0,      // falls each player has scored so far
       turn: 'A',
       phase: 'bid',      // 'bid' -> 'play' -> 'end'
       sel: null,         // selected piece { r, c }
+      leftover: 0,       // pieces that scored because of a deadlock
       log: [],
       timer: null
     };
@@ -52,11 +53,16 @@
   }
 
   function describe(p, res) {
-    const name = p === 'A' ? 'Tú' : 'El rival';
-    if (res.kind === 'exit') return name + ': saca una ficha por el fondo.' + fallsText(res.falls, p);
-    if (res.kind === 'step') return name + ': avanza una ficha.';
-    const side = res.dir < 0 ? 'la izquierda' : 'la derecha';
-    const base = name + ': avanza y empuja ' + res.chain + ' ' + plural(res.chain, 'ficha', 'fichas') + ' hacia ' + side + '.';
+    const you = p === 'A';
+    const name = you ? 'Tú' : 'El rival';
+    const rank = G.rankOf(res.piece);
+    const dirWord = res.dir < 0 ? 'la izquierda' : 'la derecha';
+    if (res.kind === 'exit') return name + ': saca su ' + rank + ' por el fondo.' + fallsText(res.falls, p);
+    if (res.kind === 'step') return name + ': avanza su ' + rank + '.';
+    if (res.kind === 'slide') return name + ': desliza su ' + rank + ' a ' + dirWord + '.';
+    if (res.kind === 'swap') return name + ': cambia de lugar su ' + rank + ' con su ' + G.rankOf(res.other) + '.';
+    const base = name + ': su ' + rank + ' vence a un ' + G.rankOf(res.beaten) + ' y empuja ' +
+      res.chain + ' ' + plural(res.chain, 'ficha', 'fichas') + ' hacia ' + dirWord + '.';
     return base + (res.falls.length ? fallsText(res.falls, p) : ' Sin caídas.');
   }
 
@@ -77,23 +83,25 @@
     const board = $('board');
     board.textContent = '';
     const myTurn = S.phase === 'play' && S.turn === 'A';
-    const mine = myTurn ? G.legalMoves(S.board, 'A') : [];
+    const mine = myTurn ? G.legalMoves(S.st, 'A') : [];
 
     for (let r = 0; r < G.ROWS; r++) {
       for (let c = 0; c < G.COLS; c++) {
         const cell = el('div', 'cell');
-        const owner = S.board[r][c];
-        if (owner) {
-          const piece = el('button', 'piece ' + (owner === 'A' ? 'blue' : 'red'));
+        const v = S.st.board[r][c];
+        if (v) {
+          const isYou = v[0] === 'A';
+          const piece = el('button', 'piece ' + (isYou ? 'blue' : 'red'), v[1]);
           piece.type = 'button';
-          const label = (owner === 'A' ? 'Ficha azul' : 'Ficha roja') + ', fila ' + (r + 1) + ', columna ' + (c + 1);
-          piece.setAttribute('aria-label', label);
-          const movable = owner === 'A' && mine.some(function (m) { return m.r === r && m.c === c; });
+          piece.setAttribute('aria-label',
+            (isYou ? 'Ficha azul' : 'Ficha roja') + ' de rango ' + v[1] + ', fila ' + (r + 1) + ', columna ' + (c + 1));
+          const movable = isYou && mine.some(function (m) { return m.r === r && m.c === c; });
           if (movable) {
             piece.classList.add('can-move');
             piece.addEventListener('click', function () { selectPiece(r, c); });
           } else {
             piece.disabled = true;
+            if (isYou && myTurn) piece.classList.add('stuck');
           }
           if (S.sel && S.sel.r === r && S.sel.c === c) {
             piece.classList.add('selected');
@@ -137,6 +145,29 @@
 
     const need = needText(count, bid, isYou);
     card.appendChild(el('p', 'need ' + need.cls, need.text));
+
+    const t = S.st.tokens[isYou ? 'A' : 'B'];
+    card.appendChild(el('p', 'tokens',
+      'Pasos laterales: ' + t + ' de ' + G.START_TOKENS));
+  }
+
+  function moveLabel(m, res) {
+    const k = res.falls.length;
+    const rank = G.rankOf(res.piece);
+    if (m.type === 'side') {
+      const arrow = m.dir < 0 ? '←' : '→';
+      if (res.kind === 'swap') return arrow + ' Cambiar de lugar con tu ' + G.rankOf(res.other) + ' (gasta 1 paso lateral)';
+      return arrow + ' Deslizar a la casilla vacía (gasta 1 paso lateral)';
+    }
+    if (res.kind === 'exit') return '↑ Salir del tablero (+1 para ti)';
+    if (res.kind === 'step') return '↑ Avanzar';
+    const arrow = m.shove < 0 ? '←' : '→';
+    const mineFalls = res.falls.filter(function (o) { return o === 'A'; }).length;
+    let label = '↑ Vencer al ' + G.rankOf(res.beaten) + ' y empujar ' + arrow + ' ';
+    if (!k) label += '(sin caídas)';
+    else label += '(' + k + ' ' + plural(k, 'caída', 'caídas') +
+      (mineFalls ? ', ' + mineFalls + ' ' + plural(mineFalls, 'tuya', 'tuyas') : '') + ': +' + k + ' para ti)';
+    return label;
   }
 
   function renderActions() {
@@ -144,25 +175,18 @@
     box.textContent = '';
     if (!(S.phase === 'play' && S.turn === 'A' && S.sel)) return;
     const sel = S.sel;
-    G.legalMoves(S.board, 'A').filter(function (m) {
-      return m.r === sel.r && m.c === sel.c;
-    }).forEach(function (m) {
-      const res = G.applyMove(S.board, 'A', m);
-      const k = res.falls.length;
-      let label;
-      if (res.kind === 'exit') {
-        label = 'Salir del tablero (+1 para ti)';
-      } else if (res.kind === 'step') {
-        label = 'Avanzar';
-      } else {
-        const arrow = m.shove < 0 ? '←' : '→';
-        const mineFalls = res.falls.filter(function (o) { return o === 'A'; }).length;
-        label = 'Avanzar y empujar ' + arrow + ' ';
-        if (!k) label += '(sin caídas)';
-        else label += '(' + k + ' ' + plural(k, 'caída', 'caídas') +
-          (mineFalls ? ', ' + mineFalls + ' ' + plural(mineFalls, 'tuya', 'tuyas') : '') + ': +' + k + ' para ti)';
-      }
-      const btn = el('button', '', label);
+    const mine = G.legalMoves(S.st, 'A').filter(function (m) { return m.r === sel.r && m.c === sel.c; });
+    const hasFwd = mine.some(function (m) { return m.type === 'fwd'; });
+    if (!hasFwd) {
+      const ahead = S.st.board[sel.r - 1] && S.st.board[sel.r - 1][sel.c];
+      const note = el('p', 'blocked-note',
+        'Este ' + S.st.board[sel.r][sel.c][1] + ' no puede avanzar: ' +
+        (ahead ? 'el ' + ahead[1] + ' de enfrente tiene el mismo rango o más.' : 'está bloqueado.'));
+      box.appendChild(note);
+    }
+    mine.forEach(function (m) {
+      const res = G.applyMove(S.st, 'A', m);
+      const btn = el('button', '', moveLabel(m, res));
       btn.type = 'button';
       btn.addEventListener('click', function () { play('A', m); });
       box.appendChild(btn);
@@ -196,7 +220,10 @@
     const rivalEnd = o.errB === 0 ? 'el rival clavó la suya'
       : (S.cb > S.b ? 'el rival se pasó por ' + o.errB : 'el rival se quedó corto por ' + o.errB);
     box.appendChild(el('h2', '', title));
-    box.appendChild(el('p', '', 'Cayeron las 8 fichas. ' + youEnd + ' y ' + rivalEnd + '.'));
+    let msg = 'Cayeron las 8 fichas. ' + youEnd + ' y ' + rivalEnd + '.';
+    if (S.leftover) msg += ' Hubo bloqueo: ' + S.leftover + ' ' + plural(S.leftover, 'ficha quedó', 'fichas quedaron') +
+      ' en el tablero y cada quien se anotó las suyas.';
+    box.appendChild(el('p', '', msg));
   }
 
   function render() {
@@ -218,20 +245,28 @@
   }
 
   function play(p, move) {
-    const res = G.applyMove(S.board, p, move);
-    S.board = res.board;
+    const res = G.applyMove(S.st, p, move);
+    S.st = res.state;
     const k = res.falls.length;
     if (p === 'A') S.ca += k; else S.cb += k;
     S.log.unshift(describe(p, res));
     S.sel = null;
 
-    const o = G.other(p);
-    if (G.countPieces(S.board, 'A') + G.countPieces(S.board, 'B') === 0) {
+    const nx = G.next(S.st, p);
+    if (nx.done) {
       S.phase = 'end';
-    } else if (G.legalMoves(S.board, o).length) {
-      S.turn = o;
+      S.ca += nx.leftover.A;
+      S.cb += nx.leftover.B;
+      S.leftover = nx.leftover.A + nx.leftover.B;
+      if (S.leftover) {
+        S.log.unshift('Nadie puede moverse. Las ' + S.leftover + ' fichas que quedan cuentan para su dueño.');
+        S.st = { board: S.st.board.map(function (row) { return row.map(function () { return null; }); }), tokens: S.st.tokens };
+      }
     } else {
-      S.turn = p; // the other player has no pieces left: keep going
+      if (nx.turn === p) {
+        S.log.unshift(p === 'A' ? 'El rival no tiene jugadas y pasa.' : 'No tienes jugadas y pasas.');
+      }
+      S.turn = nx.turn;
     }
     render();
     if (S.phase === 'play' && S.turn === 'B') scheduleRival();
@@ -240,7 +275,7 @@
   function scheduleRival() {
     clearTimeout(S.timer);
     S.timer = setTimeout(function () {
-      const move = G.chooseRivalMove(S.board, { a: S.a, b: S.b, ca: S.ca, cb: S.cb }, RIVAL_DEPTH);
+      const move = G.chooseRivalMove(S.st, { a: S.a, b: S.b }, { ca: S.ca, cb: S.cb }, RIVAL_DEPTH);
       play('B', move);
     }, RIVAL_DELAY_MS);
   }

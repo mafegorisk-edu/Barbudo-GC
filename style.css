@@ -387,3 +387,40 @@ summary:focus-visible {
   color: var(--muted);
   font-size: 0.875rem;
 }
+
+/* ---------- v2: ranks, stuck pieces, tokens ---------- */
+
+.ver {
+  font-size: 0.4em;
+  font-weight: 600;
+  color: var(--saffron);
+  vertical-align: middle;
+}
+
+.piece {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: clamp(1.4rem, 6vw, 2rem);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  text-shadow: 0 2px 0 rgba(0, 0, 0, 0.25);
+}
+
+.piece:disabled { color: #fff; }
+
+.piece.stuck {
+  opacity: 0.55;
+}
+
+.tokens {
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.blocked-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}

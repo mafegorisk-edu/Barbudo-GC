@@ -1,8 +1,34 @@
-# Barbudo Empujones
+# Barbudo Empujones v2 (ranks and sidesteps)
 
 A two-player game inspired by Barbudo, the Gonzalez del Riego family card game. You bet how many pieces you will knock off the board, and you want to hit that number exactly. Play it against a rival that thinks six turns ahead.
 
 This is a plain website: HTML, CSS and JavaScript. No build step, no dependencies.
+
+
+## What is new in v2
+
+- **Ranks.** Every piece has a rank from 1 to 4, like cards. You can only enter an occupied square if your rank is higher than the piece standing there; with an equal or lower rank that piece is blocked.
+- **Sidesteps.** Each player gets 3 in the whole game. A sidestep moves one of your pieces one square left or right, into an empty square or swapping places with another of your pieces. It is how you rearrange your ranks, and it is also a way to "pass" without advancing.
+- **Deadlock.** If you have no legal move you pass. If nobody can move, every piece still on the board falls and scores for its owner.
+- The game still has no loops: advancing is one-way and sidesteps run out, so it always ends. `game.js` is still the only file with rules.
+
+## Putting v2 on its own branch (keeps your current site safe)
+
+Run these inside the folder of your existing repo, one at a time:
+
+```
+git checkout -b v2-ranks
+```
+
+Now copy the files from this v2 folder over the old ones (`index.html`, `style.css`, `game.js`, `ui.js`, `README.md`), then:
+
+```
+git add .
+git commit -m "v2: ranked pieces and sidesteps"
+git push -u origin v2-ranks
+```
+
+Your `main` branch, and the site Render builds from it, do not change. To try v2 online, on Render click **New +**, then **Static Site**, pick the same repo, set **Branch** to `v2-ranks`, **Build Command** empty, **Publish Directory** `.`. When you like v2 more, merge it with a pull request on GitHub (a button on the branch page).
 
 ## What each file does
 
