@@ -85,10 +85,13 @@
     board.textContent = '';
     const myTurn = S.phase === 'play' && S.turn === 'A';
     const mine = myTurn ? G.legalMoves(S.st, 'A') : [];
+    const cellEls = [];
 
     for (let r = 0; r < G.ROWS; r++) {
+      cellEls.push([]);
       for (let c = 0; c < G.COLS; c++) {
         const cell = el('div', 'cell');
+        cellEls[r].push(cell);
         const v = S.st.board[r][c];
         if (v) {
           const isYou = v[0] === 'A';
@@ -113,6 +116,57 @@
         board.appendChild(cell);
       }
     }
+    renderArrows(cellEls);
+  }
+
+  // Arrows drawn on the board, on the square each move leads to.
+  function renderArrows(cellEls) {
+    if (!(S.phase === 'play' && S.turn === 'A' && S.sel)) return;
+    const sel = S.sel;
+    const moves = G.legalMoves(S.st, 'A').filter(function (m) { return m.r === sel.r && m.c === sel.c; });
+    moves.forEach(function (m) {
+      const res = G.applyMove(S.st, 'A', m);
+      let target, cls = 'arrow', glyph;
+      if (m.type === 'side') {
+        target = [m.r, m.c + m.dir];
+        cls += ' side' + (res.kind === 'swap' ? ' swap' : '');
+        glyph = res.kind === 'swap' ? '\u21c4' : (m.dir < 0 ? '\u2190' : '\u2192');
+      } else if (res.kind === 'arrive') {
+        target = [m.r, m.c];
+        cls += ' go edge';
+        glyph = '\u2191';
+      } else if (res.kind === 'step') {
+        target = [m.r - 1, m.c];
+        cls += ' go';
+        glyph = '\u2191';
+      } else {
+        target = [m.r - 1, m.c];
+        cls += ' go shove ' + (m.shove < 0 ? 'left' : 'right');
+        glyph = m.shove < 0 ? '\u2190' : '\u2192';
+      }
+      const label = moveLabel(m, res);
+      const btn = el('button', cls, glyph);
+      btn.type = 'button';
+      btn.setAttribute('aria-label', label);
+      btn.title = label;
+      if (res.lost && res.lost.length) {
+        const badge = el('span', 'badge', '\u2212' + res.lost.length);
+        badge.setAttribute('aria-hidden', 'true');
+        btn.appendChild(badge);
+      }
+      btn.addEventListener('click', function () { play('A', m); });
+      btn.addEventListener('mouseenter', function () { showHint(label); });
+      btn.addEventListener('focus', function () { showHint(label); });
+      btn.addEventListener('mouseleave', renderActions);
+      btn.addEventListener('blur', renderActions);
+      cellEls[target[0]][target[1]].appendChild(btn);
+    });
+  }
+
+  function showHint(text) {
+    const box = $('actions');
+    box.textContent = '';
+    box.appendChild(el('p', 'blocked-note', text));
   }
 
   function renderScoreCard(id, name, swatch, bid, count, owner) {
@@ -186,16 +240,12 @@
     if (!hasFwd) {
       const ahead = S.st.board[sel.r - 1] && S.st.board[sel.r - 1][sel.c];
       box.appendChild(el('p', 'blocked-note',
-        'This ' + S.st.board[sel.r][sel.c][1] + ' can’t advance: ' +
+        'This ' + S.st.board[sel.r][sel.c][1] + ' can\u2019t advance: ' +
         (ahead ? 'the ' + ahead[1] + ' in front has the same rank or higher.' : 'it is blocked.')));
     }
-    mine.forEach(function (m) {
-      const res = G.applyMove(S.st, 'A', m);
-      const btn = el('button', '', moveLabel(m, res));
-      btn.type = 'button';
-      btn.addEventListener('click', function () { play('A', m); });
-      box.appendChild(btn);
-    });
+    box.appendChild(el('p', 'blocked-note',
+      'Tap an arrow on the board. Gold arrows move forward; outlined arrows are sidesteps (' +
+      S.st.tokens.A + ' left). A red \u2212 means pieces would be lost.'));
   }
 
   function renderStatus() {
@@ -244,7 +294,7 @@
   // ---- Actions ----
   function selectPiece(r, c) {
     if (S.phase !== 'play' || S.turn !== 'A') return;
-    S.sel = { r: r, c: c };
+    S.sel = (S.sel && S.sel.r === r && S.sel.c === c) ? null : { r: r, c: c };
     render();
   }
 
