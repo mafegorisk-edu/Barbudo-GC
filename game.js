@@ -30,15 +30,20 @@
   const START_TOKENS = 3;
   const FORBIDDEN_SUM = 4; // the two bids may not add up to this
 
-  function newState() {
+  // Starting layout. Blue's pieces are listed as [row, column, rank]; red's are
+  // blue's turned half a turn around, so both sides are in the same situation.
+  const START_LAYOUT = [
+    [2, 1, 1], [2, 2, 4], // front row (face to face)
+    [3, 0, 2], [3, 3, 3]  // back row (on the border behind)
+  ];
+
+  function newState(layout) {
     const board = [];
     for (let r = 0; r < ROWS; r++) board.push(new Array(COLS).fill(null));
-    const blue = [1, 2, 3, 4];
-    const red = [2, 1, 4, 3];
-    for (let c = 0; c < COLS; c++) {
-      board[2][c] = 'A' + blue[c];
-      board[1][c] = 'B' + red[c];
-    }
+    (layout || START_LAYOUT).forEach(function (q) {
+      board[q[0]][q[1]] = 'A' + q[2];
+      board[ROWS - 1 - q[0]][COLS - 1 - q[1]] = 'B' + q[2];
+    });
     return { board: board, tokens: { A: START_TOKENS, B: START_TOKENS } };
   }
 
@@ -199,7 +204,7 @@
       memo.set(k, best);
       return best;
     }
-    const st0 = newState();
+    const st0 = newState(opts.layout);
     if (opts.tokens) st0.tokens = { A: opts.tokens.A, B: opts.tokens.B };
     const v = go(st0, opts.first || 'A', 0, 0);
     return { value: over ? null : v, states: memo.size };

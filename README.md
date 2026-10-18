@@ -6,7 +6,7 @@ Plain website: HTML, CSS and JavaScript. No build step, no dependencies.
 
 ## The rules in one minute
 
-- 4x4 board, 4 pieces each, ranked 1 to 4, facing each other. Blue (you) moves up, red (the rival) moves down.
+- 4x4 board, 4 pieces each, ranked 1 to 4. Two pieces start in the front row, face to face, and two start behind them on your own back border. Blue (you) moves up, red (the rival) moves down.
 - Before playing, each player bets how many of their pieces will cross. The two bets can't add up to 4.
 - On your turn: advance one piece one step, **or** spend one of your 3 sidesteps.
 - Entering an occupied square needs a **higher rank**. You shove that piece and the pieces touching it sideways. A piece shoved off the side is **lost** and counts for nobody.
@@ -19,7 +19,9 @@ In v2 the exact solver showed that the sum of the two bets decided the winner, n
 
 ## Honest note from the solver
 
-`solve-all.js` solves every pair of bets exactly (`node solve-all.js`). On the pairs that finished, the **first player** still wins a lot: for example blue wins whenever it bids 3 and red bids 0, 2, 3 or 4. Blue bidding 0 loses to any bid of 1 to 3. A few pairs are draws, and some are too big to finish with the default limit. So v3 is more strategic than v2, but not balanced under perfect play. The rival in the page is not perfect (it looks 8 turns ahead with a rough guess beyond that), so the game is still playable. Fixing the balance is a good next design problem, and the solver is how you would check it.
+`solve-all.js` solves every pair of bets exactly (`node solve-all.js`). I ran it on the first layout (all four pieces in one row): the **first player** won most pairs, for example blue wins whenever it bids 3 and red bids 0, 2, 3 or 4. The current layout (two pieces in front, two on the back border) has many more possible positions, and in my tests most pairs were too big for the solver to finish in a few minutes, so **I don't know yet how balanced it is**. Playing it is the best test for now, and the solver can still finish the smaller pairs if you give it more time or a bigger `LIMIT`. The rival on the page is not perfect (it looks 8 turns ahead with a rough guess beyond that), so the game is playable either way.
+
+You can try other layouts by editing `START_LAYOUT` at the top of `game.js`: each entry is `[row, column, rank]` for blue, and red gets the same layout turned half a turn around.
 
 ## Files
 
