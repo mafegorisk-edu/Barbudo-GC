@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Barbudo Empujones</title>
+  <meta name="description" content="Juego de dos jugadores inspirado en Barbudo: apuesta cuántas fichas vas a tirar del tablero, y ni una más.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>Barbudo Empujones</h1>
+      <p class="tagline">Apuesta cuántas caídas vas a anotarte. Ni una más, ni una menos.</p>
+    </div>
+    <button type="button" id="new-game" class="btn primary">Nueva partida</button>
+  </header>
+
+  <main class="layout">
+    <section class="board-col" aria-label="Tablero">
+      <div id="board" class="board" role="group" aria-label="Tablero de 4 por 4"></div>
+      <p class="board-note">Tú eres azul y avanzas hacia arriba. El rival es rojo y avanza hacia abajo.</p>
+      <div id="actions" class="actions" aria-label="Movimientos posibles"></div>
+    </section>
+
+    <section class="panel-col" aria-label="Marcador">
+      <div id="bid-box" class="card bid-box">
+        <label for="bid-range" class="bid-label">¿Cuántas caídas te vas a anotar?</label>
+        <div class="bid-row">
+          <input type="range" id="bid-range" min="0" max="8" value="4" step="1">
+          <output id="bid-value" for="bid-range" class="bid-number">4</output>
+        </div>
+        <p class="hint">El rival no podrá apostar <strong id="forbidden">4</strong>, porque las dos apuestas no pueden sumar 8.</p>
+        <button type="button" id="bid-go" class="btn primary">Apostar y empezar</button>
+      </div>
+
+      <div id="you" class="card score"></div>
+      <div id="rival" class="card score"></div>
+
+      <div id="result" class="card result" hidden></div>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+      <ol id="log" class="log" aria-label="Últimas jugadas"></ol>
+    </section>
+  </main>
+
+  <section class="rules">
+    <details>
+      <summary>Cómo se juega</summary>
+      <div class="rules-body">
+        <p>Cada jugador tiene 4 fichas, frente a frente en un tablero de 4×4. Antes de empezar, cada quien apuesta cuántas caídas se va a anotar. Las dos apuestas no pueden sumar 8.</p>
+        <p>En tu turno mueves una ficha un paso hacia adelante. Si la casilla de adelante está libre, avanzas. Si es el final del tablero, la ficha sale. Si está ocupada, entras y empujas hacia un lado (tú eliges): la ficha que estaba ahí y todas las que la tocan en esa dirección se mueven una casilla.</p>
+        <p>Una ficha que sale del tablero es una caída, y se la anota quien movió, sea de quien sea la ficha. Nadie retrocede, así que al final caen las 8 fichas.</p>
+        <p>Gana quien termine más cerca de su apuesta. Pasarse es tan malo como quedarse corto.</p>
+        <p><strong>Regalando.</strong> Si las apuestas suman menos de 8, sobran caídas que nadie quiere: la partida es una carrera por no ser quien se las anote.<br>
+           <strong>Peleando.</strong> Si suman más de 8, los dos quieren más de las que hay: conviene empujar filas llenas cuanto antes.</p>
+      </div>
+    </details>
+  </section>
+
+  <footer class="foot">
+    Inspirado en Barbudo, el juego de cartas de la familia González del Riego. Proyecto de diseño para GamesCrafters.
+  </footer>
+
+  <noscript><p class="status">Este juego necesita JavaScript para funcionar.</p></noscript>
+  <script src="game.js"></script>
+  <script src="ui.js"></script>
+</body>
+</html>

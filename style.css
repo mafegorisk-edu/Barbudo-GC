@@ -1,0 +1,389 @@
+/* Barbudo Empujones: styles.
+   Palette comes from Andean textiles: deep indigo, turquoise, fuchsia, saffron. */
+
+:root {
+  --bg: #eef0f7;
+  --ink: #161b3d;
+  --muted: #565d88;
+  --card: #ffffff;
+  --line: #d3d8ec;
+  --board: #252f6b;
+  --cell: #2e3a7c;
+  --cell-line: #3b4a94;
+  --blue: #12b5ae;
+  --blue-deep: #0b7f7a;
+  --red: #e2377c;
+  --red-deep: #a8205a;
+  --saffron: #f4b13a;
+  --saffron-ink: #3b2704;
+  --font-display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "DM Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0d1130;
+    --ink: #eceefb;
+    --muted: #a0a7d3;
+    --card: #171c47;
+    --line: #2b3372;
+    --board: #1a2151;
+    --cell: #232c66;
+    --cell-line: #323d82;
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+h1, .bid-number, .score-bid {
+  font-family: var(--font-display);
+}
+
+/* ---------- Header ---------- */
+
+.top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 1.75rem 1.25rem 1rem;
+}
+
+h1 {
+  margin: 0;
+  font-size: clamp(2.1rem, 7vw, 3.6rem);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.tagline {
+  margin: 0.5rem 0 0;
+  color: var(--muted);
+  max-width: 34ch;
+}
+
+/* ---------- Layout ---------- */
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem 1.5rem;
+}
+
+@media (min-width: 860px) {
+  .layout {
+    grid-template-columns: minmax(0, 460px) minmax(0, 1fr);
+    align-items: start;
+    gap: 2.25rem;
+  }
+}
+
+/* ---------- Buttons ---------- */
+
+.btn,
+.actions button {
+  font: inherit;
+  font-weight: 500;
+  color: var(--ink);
+  background: var(--card);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.95rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.btn:hover,
+.actions button:hover {
+  border-color: var(--saffron);
+}
+
+.btn.primary {
+  background: var(--saffron);
+  border-color: var(--saffron);
+  color: var(--saffron-ink);
+  font-weight: 700;
+}
+
+.btn.primary:hover {
+  filter: brightness(1.05);
+}
+
+.btn:focus-visible,
+.actions button:focus-visible,
+.piece:focus-visible,
+input[type="range"]:focus-visible,
+summary:focus-visible {
+  outline: 3px solid var(--saffron);
+  outline-offset: 3px;
+}
+
+/* ---------- Board ---------- */
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+  padding: 10px;
+  background: var(--board);
+  border-radius: 18px;
+  width: 100%;
+}
+
+.cell {
+  aspect-ratio: 1;
+  display: grid;
+  place-items: center;
+  background: var(--cell);
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px var(--cell-line);
+}
+
+.piece {
+  width: 78%;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  cursor: default;
+  box-shadow:
+    inset 0 0 0 5px rgba(255, 255, 255, 0.2),
+    inset 0 -6px 0 rgba(0, 0, 0, 0.18),
+    0 3px 0 rgba(0, 0, 0, 0.3);
+}
+
+.piece.blue { background: var(--blue); }
+.piece.red  { background: var(--red); }
+
+.piece.can-move {
+  cursor: pointer;
+}
+
+.piece.selected {
+  outline: 4px solid var(--saffron);
+  outline-offset: 3px;
+}
+
+.board-note {
+  margin: 0.75rem 0 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+/* ---------- Move buttons ---------- */
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+  min-height: 3rem;
+}
+
+/* ---------- Cards ---------- */
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 1rem 1.1rem;
+  margin-bottom: 0.9rem;
+}
+
+.bid-box[hidden],
+.result[hidden],
+.score[hidden] {
+  display: none;
+}
+
+.bid-label {
+  display: block;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.bid-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.bid-row input[type="range"] {
+  flex: 1;
+  accent-color: var(--saffron);
+}
+
+.bid-number {
+  font-size: 2.4rem;
+  font-weight: 800;
+  min-width: 1.5ch;
+  text-align: right;
+}
+
+.hint {
+  margin: 0.5rem 0 0.9rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---------- Scoreboard ---------- */
+
+.score-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+}
+
+.swatch {
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+}
+
+.swatch.blue { background: var(--blue); }
+.swatch.red  { background: var(--red); }
+
+.score-main {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin: 0.35rem 0 0.1rem;
+}
+
+.score-bid {
+  font-size: 2.6rem;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.score-label {
+  color: var(--muted);
+}
+
+.pips {
+  display: flex;
+  gap: 5px;
+  margin: 0.7rem 0 0.5rem;
+}
+
+.pip {
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 50%;
+  border: 2px solid var(--line);
+  background: transparent;
+}
+
+.pip.filled.you-pip   { background: var(--blue); border-color: var(--blue); }
+.pip.filled.rival-pip { background: var(--red);  border-color: var(--red); }
+.pip.filled.over      { background: transparent; border-color: var(--saffron); box-shadow: inset 0 0 0 4px var(--saffron); }
+.pip.target           { border-color: var(--ink); border-width: 3px; }
+
+.need {
+  margin: 0;
+  font-weight: 500;
+}
+
+.need.exact { color: var(--blue-deep); }
+.need.over  { color: var(--red-deep); }
+
+@media (prefers-color-scheme: dark) {
+  .need.exact { color: var(--blue); }
+  .need.over  { color: #ff7aa9; }
+}
+
+/* ---------- Result, status, log ---------- */
+
+.result {
+  border-color: var(--saffron);
+  border-width: 2px;
+}
+
+.result h2 {
+  margin: 0 0 0.25rem;
+  font-family: var(--font-display);
+  font-size: 2rem;
+  font-weight: 800;
+}
+
+.result p {
+  margin: 0;
+}
+
+.status {
+  margin: 0.25rem 0 0.75rem;
+  font-weight: 500;
+  min-height: 1.6em;
+}
+
+.log {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.925rem;
+  color: var(--muted);
+}
+
+.log li:first-child {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+/* ---------- Rules and footer ---------- */
+
+.rules {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0 1.25rem 1.5rem;
+}
+
+.rules details {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 0.9rem 1.1rem;
+}
+
+.rules summary {
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.rules-body {
+  max-width: 62ch;
+  margin-top: 0.75rem;
+}
+
+.rules-body p {
+  margin: 0 0 0.8rem;
+}
+
+.foot {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 0.5rem 1.25rem 2.5rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
