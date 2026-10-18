@@ -33,8 +33,8 @@
   // Starting layout. Blue's pieces are listed as [row, column, rank]; red's are
   // blue's turned half a turn around, so both sides are in the same situation.
   const START_LAYOUT = [
-    [2, 1, 1], [2, 2, 4], // front row (face to face)
-    [3, 0, 2], [3, 3, 3]  // back row (on the border behind)
+    [2, 1, 2], [2, 2, 4], // front row (face to face)
+    [3, 0, 1], [3, 3, 3]  // back row (on the border behind)
   ];
 
   function newState(layout) {
