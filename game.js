@@ -1,44 +1,42 @@
 /*
   BarbShove: your score is how many of YOUR pieces cross the board.
   Rules and the rival's brain. No screen code in here, so it can be tested
-  with Node. These are the same rules as the GamesmanPy version (barbshove.py).
+  with Node. Same rules as the GamesmanPy version (barbshove.py), on a longer board.
 
   Players: 'A' = the person at the keyboard (blue, moves up the board, bets first)
            'B' = the rival (red, moves down the board, bets second)
 
   A cell is null or a string like 'A3' = owner 'A', rank 3.
-  A state is { board, tokens: { A, B } }  (tokens = sidesteps left).
+  A state is { board, tokens: { A, B }, closed: [bool per column] }.
 
   Rules in short:
-  - 4x4 board, 3 pieces each, ranks 1-3, face to face.
-  - Before playing, you bet how many of your own pieces will cross. Then the
-    rival bets (it sees your bet). The two bets may not add up to FORBIDDEN_SUM.
-  - On your turn you move one piece forward one square, or spend a sidestep.
-  - Moving into an occupied square needs a HIGHER rank than the piece there.
-    Then you either SHOVE that piece and the pieces touching it sideways (a piece
-    shoved off the side is LOST and scores for nobody), or SWAP THROUGH: you take
-    its square and it goes back to the square you left.
-  - A piece that lands on the far row has CROSSED at once: +1 for its owner. That
-    includes an enemy piece you swap onto its own far row.
-  - Whoever ends closest to their own bet wins. Same distance: the first bidder
-    (you) wins.
+  - 5 rows x 4 columns, 3 pieces each, ranks 1-3.
+  - Each column has ONE exit, shared by both players. The first piece to cross in
+    a column closes it for everybody. A closed exit can't be entered.
+  - You bet how many of your own pieces will cross, then the rival bets (it sees
+    your bet). The two bets may not add up to 4 (the number of exits).
+  - On your turn you move one piece forward one square, or spend your sidestep.
+  - Moving into an occupied square needs a HIGHER rank than the piece there. You
+    shove that piece and the pieces touching it sideways (a piece shoved off the
+    side is LOST and scores for nobody).
+  - Whoever ends closest to their own bet wins. Same distance: tie.
   - If a player cannot move they pass. If nobody can move, the pieces left on
     the board are stuck and score for nobody.
 */
 (function (root) {
   'use strict';
 
-  const ROWS = 4;
+  const ROWS = 5;
   const COLS = 4;
   const PIECES_EACH = 3;
-  const START_TOKENS = 2;
-  const FORBIDDEN_SUM = 3; // the two bids may not add up to this
+  const START_TOKENS = 1;
+  const FORBIDDEN_SUM = COLS; // one exit per column; the two bids may not add up to this
 
   // Starting layout. Blue's pieces are listed as [row, column, rank]; red's are
   // blue's turned half a turn around, so both sides are in the same situation.
   const START_LAYOUT = [
-    [2, 1, 2], [2, 2, 3], // front row (face to face)
-    [3, 0, 1]             // back row (on the border behind)
+    [3, 1, 2], [3, 2, 3], // front row
+    [4, 0, 1]             // back row (on the border behind)
   ];
 
   function newState(layout) {
@@ -48,7 +46,7 @@
       board[q[0]][q[1]] = 'A' + q[2];
       board[ROWS - 1 - q[0]][COLS - 1 - q[1]] = 'B' + q[2];
     });
-    return { board: board, tokens: { A: START_TOKENS, B: START_TOKENS } };
+    return { board: board, tokens: { A: START_TOKENS, B: START_TOKENS }, closed: new Array(COLS).fill(false) };
   }
 
   function forward(p) { return p === 'A' ? -1 : 1; }
@@ -66,12 +64,13 @@
   function cloneState(st) {
     return {
       board: st.board.map(function (row) { return row.slice(); }),
-      tokens: { A: st.tokens.A, B: st.tokens.B }
+      tokens: { A: st.tokens.A, B: st.tokens.B },
+      closed: st.closed.slice()
     };
   }
 
   // Moves:
-  //  { type:'fwd',  r, c, shove }   shove 0 = free square; -1 / +1 = shove that way; 2 = swap through
+  //  { type:'fwd',  r, c, shove }   shove 0 = free square; -1 / +1 = shove that way
   //  { type:'side', r, c, dir }     dir -1 or +1, costs one token
   function legalMoves(st, p) {
     const board = st.board;
@@ -82,12 +81,14 @@
         const cell = board[r][c];
         if (!cell || cell[0] !== p) continue;
         const ahead = r + f;
-        if (ahead < 0 || ahead >= ROWS || !board[ahead][c]) {
-          moves.push({ type: 'fwd', r: r, c: c, shove: 0 });
-        } else if (rankOf(cell) > rankOf(board[ahead][c])) {
-          moves.push({ type: 'fwd', r: r, c: c, shove: -1 });
-          moves.push({ type: 'fwd', r: r, c: c, shove: 1 });
-          moves.push({ type: 'fwd', r: r, c: c, shove: 2 }); // swap through
+        const exitClosed = ahead === farRow(p) && st.closed[c];
+        if (!exitClosed) {
+          if (!board[ahead][c]) {
+            moves.push({ type: 'fwd', r: r, c: c, shove: 0 });
+          } else if (rankOf(cell) > rankOf(board[ahead][c])) {
+            moves.push({ type: 'fwd', r: r, c: c, shove: -1 });
+            moves.push({ type: 'fwd', r: r, c: c, shove: 1 });
+          }
         }
         if (st.tokens[p] > 0) {
           [-1, 1].forEach(function (d) {
@@ -103,19 +104,21 @@
   }
 
   // Returns { state, crossed, lost, kind, chain, dir, piece, other, beaten }
-  //   kind:    'step' | 'arrive' | 'shove' | 'through' | 'slide' | 'swap'
+  //   kind:    'step' | 'arrive' | 'shove' | 'slide' | 'swap'   (arrive = crossed, closes that exit)
   //   crossed: { A, B } pieces that crossed this move (each is +1 for its owner)
   //   lost:    owners of pieces shoved off the side (score for nobody)
   function farRow(owner) { return owner === 'A' ? 0 : ROWS - 1; }
 
   // If the piece on this square stands on its owner's far row, it crosses now.
-  function settle(board, r, c, crossed) {
+  function settle(ns, r, c, crossed) {
+    const board = ns.board;
     const cell = board[r][c];
     if (!cell) return false;
     const owner = cell[0];
     if (r === farRow(owner)) {
       board[r][c] = null;
       crossed[owner] += 1;
+      ns.closed[c] = true;
       return true;
     }
     return false;
@@ -141,24 +144,10 @@
     const s = move.shove;
     nb[r][c] = null;
 
-    if (ahead < 0 || ahead >= ROWS) {
-      crossed[p] += 1;
-      return { state: ns, crossed: crossed, lost: [], kind: 'arrive', chain: 0, dir: 0, piece: piece };
-    }
     if (!nb[ahead][c]) {
       nb[ahead][c] = piece;
-      const crossedNow = settle(nb, ahead, c, crossed);
+      const crossedNow = settle(ns, ahead, c, crossed);
       return { state: ns, crossed: crossed, lost: [], kind: crossedNow ? 'arrive' : 'step', chain: 0, dir: 0, piece: piece };
-    }
-
-    if (s === 2) {
-      // swap through: we take the square, the piece that was there goes back to ours
-      const beaten = nb[ahead][c];
-      nb[ahead][c] = piece;
-      nb[r][c] = beaten;
-      settle(nb, ahead, c, crossed);
-      settle(nb, r, c, crossed);
-      return { state: ns, crossed: crossed, lost: [], kind: 'through', chain: 1, dir: 0, piece: piece, beaten: beaten };
     }
 
     const line = [];
@@ -175,7 +164,7 @@
       else nb[ahead][nx] = q.cell;
     });
     nb[ahead][c] = piece;
-    settle(nb, ahead, c, crossed);
+    settle(ns, ahead, c, crossed);
     return { state: ns, crossed: crossed, lost: lost, kind: 'shove', chain: line.length, dir: s, piece: piece, beaten: line[0].cell };
   }
 
@@ -190,18 +179,19 @@
     return { done: true, stuck: countPieces(st.board) };
   }
 
+  function openExits(st) { return st.closed.filter(function (x) { return !x; }).length; }
+
   function validRivalBids(a) {
     const valid = [];
     for (let b = 0; b <= PIECES_EACH; b++) if (a + b !== FORBIDDEN_SUM) valid.push(b);
     return valid;
   }
 
-  // Whoever ends closest to their own bid wins. Same distance: the first bidder
-  // (player A, you) wins.
+  // Whoever ends closest to their own bid wins. Same distance: a tie.
   function outcome(a, b, ca, cb) {
     const errA = Math.abs(a - ca);
     const errB = Math.abs(b - cb);
-    return { errA: errA, errB: errB, winner: errA <= errB ? 'A' : 'B', sameDistance: errA === errB };
+    return { errA: errA, errB: errB, winner: errA === errB ? 'T' : (errA < errB ? 'A' : 'B'), sameDistance: errA === errB };
   }
 
   // ---- Exact solver (used offline to study the game, and for the rival's bid) ----
@@ -211,7 +201,7 @@
     let over = false;
     function key(st, t, ca, cb) {
       return st.board.map(function (r) { return r.map(function (c) { return c || '..'; }).join(''); }).join('/') +
-        t + st.tokens.A + st.tokens.B + ca + cb;
+        t + st.tokens.A + st.tokens.B + st.closed.map(Number).join('') + ca + cb;
     }
     function go(st, t, ca, cb) {
       if (over) return 0;
@@ -252,7 +242,8 @@
   // Rough guess when the search runs out of depth: how far each side is from its bid,
   // counting pieces that could still arrive.
   function guessValue(bids, st, ca, cb) {
-    const left = function (p) { return countPieces(st.board, p); };
+    const exits = openExits(st);
+    const left = function (p) { return Math.min(countPieces(st.board, p), exits); };
     function dist(bid, have, remaining) {
       if (have > bid) return have - bid;
       if (have + remaining < bid) return bid - have - remaining;
@@ -296,9 +287,9 @@
   }
 
   // The rival bets second and sees your bet. These replies come from solving the
-  // whole game (see barbshove.py): where red can win it picks a winning reply, and
-  // where it cannot it picks the reply that holds out the longest.
-  const RIVAL_REPLY = { 0: [1, 2], 1: [3], 2: [2], 3: [3] };
+  // whole 5x4 game: where red can win it picks a winning reply, and where it cannot
+  // it picks the reply that ties.
+  const RIVAL_REPLY = { 0: [1, 2, 3], 1: [2], 2: [1], 3: [2] };
 
   function chooseRivalBid(a) {
     const valid = validRivalBids(a);
@@ -310,7 +301,7 @@
   const api = {
     ROWS: ROWS, COLS: COLS, PIECES_EACH: PIECES_EACH, START_TOKENS: START_TOKENS, FORBIDDEN_SUM: FORBIDDEN_SUM,
     newState: newState, other: other, rankOf: rankOf, countPieces: countPieces,
-    legalMoves: legalMoves, applyMove: applyMove, next: next,
+    openExits: openExits, legalMoves: legalMoves, applyMove: applyMove, next: next,
     validRivalBids: validRivalBids, chooseRivalBid: chooseRivalBid,
     outcome: outcome, solve: solve, chooseRivalMove: chooseRivalMove
   };

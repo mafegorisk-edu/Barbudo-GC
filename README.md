@@ -6,7 +6,7 @@ The same rules also exist as a GamesmanPy game (`barbshove.py`), so the game can
 
 ## The rules in one minute
 
-- 4×4 board. Each player has 3 pieces ranked 1 to 3. You are blue and move up. The rival is red and moves down.
+- 5×4 board. Each player has 3 pieces ranked 1 to 3. You are blue and move up. The rival is red and moves down.
 - **Bets come first.** You bet how many of your pieces will cross. The rival bets second and sees your bet. The two bets can't add up to 3.
 - **Your turn:** advance one piece one step, or spend one of your 2 sidesteps.
 - **Advance** into an empty square, or into an occupied square if your rank is higher than the piece there. Then choose:
@@ -65,3 +65,7 @@ Your `main` branch does not change. To publish it, either:
 
 - **Replace the live game:** on GitHub open a pull request from `barbshove` into `main` and merge it. Render updates the site by itself after a minute or two.
 - **Keep both:** on Render click **New +**, **Static Site**, pick the same repo, set **Branch** to `barbshove`, leave **Build Command** empty, set **Publish Directory** to `.`.
+
+
+## Current rules (v3: shared exits)
+5 rows x 4 columns, 3 pieces each, one exit per column shared by both players (first crossing closes it), bets can't add up to 4, 1 sidestep each, no swap-through, ties are ties. The rival searches 10 moves ahead and answers your bet with the best reply found by solving the board exactly.

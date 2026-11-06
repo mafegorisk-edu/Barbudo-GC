@@ -7,7 +7,7 @@
   'use strict';
 
   const G = window.Game;
-  const RIVAL_DEPTH = 8;      // how many turns ahead the rival thinks
+  const RIVAL_DEPTH = 10;     // how many turns ahead the rival thinks
   const RIVAL_DELAY_MS = 800; // pause so you can see what happened
 
   // ---- State ----
@@ -51,15 +51,11 @@
     return ' ' + parts.join(' and ') + ' ' + (lost.length > 1 ? 'are' : 'is') + ' shoved off the side and lost.';
   }
 
-  // Who crossed on this move (it can be the other player's piece if you swap it through).
+  // Who crossed on this move (and which exit closed).
   function crossText(p, res) {
-    const mine = res.crossed[p];
-    const theirs = res.crossed[p === 'A' ? 'B' : 'A'];
     const you = p === 'A';
-    let t = '';
-    if (mine) t += ' ' + (you ? 'Your piece' : 'Their piece') + ' crosses the board: +' + mine + ' for ' + (you ? 'you' : 'the rival') + '.';
-    if (theirs) t += ' ' + (you ? 'The rival\u2019s piece' : 'Your piece') + ' is pushed across the board: +' + theirs + ' for ' + (you ? 'the rival' : 'you') + '.';
-    return t;
+    if (res.crossed[p]) return ' ' + (you ? 'Your piece' : 'Their piece') + ' crosses the board: +1 for ' + (you ? 'you' : 'the rival') + '. That exit is now closed for everybody.';
+    return '';
   }
 
   function describe(p, res) {
@@ -71,9 +67,6 @@
     if (res.kind === 'step') return name + ': ' + their + ' ' + rank + ' steps forward.';
     if (res.kind === 'slide') return name + ': ' + their + ' ' + rank + ' sidesteps ' + dirWord + '.';
     if (res.kind === 'swap') return name + ': ' + their + ' ' + rank + ' swaps places with ' + their + ' ' + G.rankOf(res.other) + '.';
-    if (res.kind === 'through') {
-      return name + ': ' + their + ' ' + rank + ' beats a ' + G.rankOf(res.beaten) + ' and swaps places with it.' + crossText(p, res);
-    }
     const base = name + ': ' + their + ' ' + rank + ' beats a ' + G.rankOf(res.beaten) + ' and shoves ' +
       res.chain + ' ' + plural(res.chain, 'piece', 'pieces') + ' ' + dirWord + '.';
     return base + (res.lost.length ? lostText(res.lost) : ' Nobody is lost.') + crossText(p, res);
@@ -104,7 +97,7 @@
     for (let r = 0; r < G.ROWS; r++) {
       cellEls.push([]);
       for (let c = 0; c < G.COLS; c++) {
-        const cell = el('div', 'cell');
+        const cell = el('div', 'cell' + ((r === 0 || r === G.ROWS - 1) && S.st.closed[c] ? ' shut' : ''));
         cellEls[r].push(cell);
         const v = S.st.board[r][c];
         if (v) {
@@ -133,6 +126,21 @@
     renderArrows(cellEls);
   }
 
+  function renderExits() {
+    ['exits-top', 'exits-bottom'].forEach(function (id) {
+      const box = $(id);
+      box.textContent = '';
+      for (let c = 0; c < G.COLS; c++) {
+        const closed = S.st.closed[c];
+        const lamp = el('span', 'lamp' + (closed ? ' closed' : ''), closed ? '\u2715' : '\u25cb');
+        lamp.title = closed ? 'This exit is closed' : 'This exit is open';
+        box.appendChild(lamp);
+      }
+    });
+    const open = G.openExits(S.st);
+    $('exits-count').textContent = open + ' of ' + G.COLS + ' exits open. Each column has one exit, shared by both players.';
+  }
+
   // Arrows drawn on the board, on the square each move leads to.
   function renderArrows(cellEls) {
     if (!(S.phase === 'play' && S.turn === 'A' && S.sel)) return;
@@ -149,10 +157,6 @@
         target = [m.r - 1, m.c];
         cls += ' go';
         glyph = '\u2191';
-      } else if (res.kind === 'through') {
-        target = [m.r - 1, m.c];
-        cls += ' go through';
-        glyph = '\u21c5';
       } else {
         target = [m.r - 1, m.c];
         cls += ' go shove ' + (m.shove < 0 ? 'left' : 'right');
@@ -170,11 +174,6 @@
       }
       if (res.crossed && res.crossed.A) {
         const badge = el('span', 'badge good', '+' + res.crossed.A);
-        badge.setAttribute('aria-hidden', 'true');
-        btn.appendChild(badge);
-      }
-      if (res.crossed && res.crossed.B) {
-        const badge = el('span', 'badge warn', '+' + res.crossed.B);
         badge.setAttribute('aria-hidden', 'true');
         btn.appendChild(badge);
       }
@@ -229,7 +228,7 @@
 
     card.appendChild(el('p', 'tokens',
       onBoard + ' on the board · ' + S.lost[owner] + ' lost · ' +
-      S.st.tokens[owner] + ' of ' + G.START_TOKENS + ' sidesteps left'));
+      S.st.tokens[owner] + ' of ' + G.START_TOKENS + ' sidestep left'));
   }
 
   function moveLabel(m, res) {
@@ -240,13 +239,9 @@
     }
     const extra = [];
     if (res.crossed.A) extra.push('+' + res.crossed.A + ' for you');
-    if (res.crossed.B) extra.push('+' + res.crossed.B + ' for the rival: their piece is pushed across');
     const cross = extra.length ? ' (' + extra.join('; ') + ')' : '';
-    if (res.kind === 'arrive') return '↑ Step forward and cross the board (+1 for you)';
+    if (res.kind === 'arrive') return '↑ Step forward and cross the board (+1 for you, closes this exit for both)';
     if (res.kind === 'step') return '↑ Step forward';
-    if (res.kind === 'through') {
-      return '⇅ Beat the ' + G.rankOf(res.beaten) + ' and swap places with it. It goes back one step' + cross;
-    }
     const arrow = m.shove < 0 ? '←' : '→';
     let label = '↑ Beat the ' + G.rankOf(res.beaten) + ' and shove ' + arrow + ' ';
     if (!res.lost.length) label += '(nobody lost)';
@@ -275,8 +270,8 @@
         (ahead ? 'the ' + ahead[1] + ' in front has the same rank or higher.' : 'it is blocked.')));
     }
     box.appendChild(el('p', 'blocked-note',
-      'Tap an arrow on the board. Gold arrows move forward (⇅ swaps places with the piece you beat); outlined arrows are sidesteps (' +
-      S.st.tokens.A + ' left). A red \u2212 means pieces would be lost; a green + means you cross, an orange + means the rival is pushed across.'));
+      'Tap an arrow on the board. Gold arrows move forward; outlined arrows are the sidestep (' +
+      S.st.tokens.A + ' left). A red \u2212 means pieces would be lost; a green + means you cross and close that exit.'));
   }
 
   function renderStatus() {
@@ -300,20 +295,21 @@
     if (S.phase !== 'end') { box.hidden = true; return; }
     box.hidden = false;
     const o = G.outcome(S.a, S.b, S.ca, S.cb);
-    const title = o.winner === 'A' ? 'You win' : 'You lose';
+    const title = o.winner === 'A' ? 'You win' : (o.winner === 'B' ? 'You lose' : 'Tie');
     const youEnd = o.errA === 0 ? 'You hit your bid exactly'
       : (S.ca > S.a ? 'You went over by ' + o.errA : 'You fell short by ' + o.errA);
     const rivalEnd = o.errB === 0 ? 'the rival hit theirs exactly'
       : (S.cb > S.b ? 'the rival went over by ' + o.errB : 'the rival fell short by ' + o.errB);
     box.appendChild(el('h2', '', title));
     let msg = youEnd + ' and ' + rivalEnd + '.';
-    if (o.sameDistance) msg += ' Same distance from the bet, so the first bidder (you) wins.';
+    if (o.sameDistance) msg += ' Same distance from the bet: a tie.';
     if (S.stuck) msg += ' Nobody could move, so ' + S.stuck + ' ' + plural(S.stuck, 'piece stayed', 'pieces stayed') + ' on the board and counted for nobody.';
     box.appendChild(el('p', '', msg));
   }
 
   function render() {
     $('bid-box').hidden = S.phase !== 'bid';
+    renderExits();
     renderBoard();
     renderScoreCard('you', 'You (blue)', 'blue', S.a, S.ca, 'A');
     renderScoreCard('rival', 'Rival (red)', 'red', S.b, S.cb, 'B');
