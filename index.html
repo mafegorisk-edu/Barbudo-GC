@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Barbudo Shove</title>
+  <title>BarbShove</title>
   <meta name="description" content="A two-player board game inspired by the card game Barbudo. Bet how many of your pieces will cross the board, then make it happen. No more, no less.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -13,7 +13,7 @@
 <body>
   <header class="top">
     <div>
-      <h1>Barbudo Shove <span class="ver">v3</span></h1>
+      <h1>BarbShove</h1>
       <p class="tagline">Bet how many of your pieces will cross the board. Not one more, not one fewer.</p>
     </div>
     <button type="button" id="new-game" class="btn primary">New game</button>
@@ -22,19 +22,19 @@
   <main class="layout">
     <section class="board-col" aria-label="Board">
       <div id="board" class="board" role="group" aria-label="4 by 4 board"></div>
-      <p class="board-note">You are blue and move up. The rival is red and moves down. The number on each piece is its rank: higher beats lower.</p>
+      <p class="board-note">You are blue and move up. The rival is red and moves down. The number on each piece is its rank: only a higher rank can push a piece out of the way.</p>
       <div id="actions" class="actions" aria-label="Possible moves"></div>
     </section>
 
     <section class="panel-col" aria-label="Scoreboard">
       <div id="bid-box" class="card bid-box">
-        <label for="bid-range" class="bid-label">How many of your pieces will cross the board?</label>
+        <label for="bid-range" class="bid-label">How many of your 3 pieces will cross the board?</label>
         <div class="bid-row">
-          <input type="range" id="bid-range" min="0" max="4" value="2" step="1">
+          <input type="range" id="bid-range" min="0" max="3" value="2" step="1">
           <output id="bid-value" for="bid-range" class="bid-number">2</output>
         </div>
-        <p class="hint">The rival can't bid <strong id="forbidden">2</strong>, because the two bids can't add up to 4.</p>
-        <button type="button" id="bid-go" class="btn primary">Place bid and start</button>
+        <p class="hint">You bet first and the rival sees your bet. The rival can't bet <strong id="forbidden">1</strong>, because the two bets can't add up to 3.</p>
+        <button type="button" id="bid-go" class="btn primary">Place bet and start</button>
       </div>
 
       <div id="you" class="card score"></div>
@@ -51,13 +51,17 @@
     <details>
       <summary>How to play</summary>
       <div class="rules-body">
-        <p>Each player has 4 pieces, ranked 1 to 4 (the number you see on each one), on a 4×4 board. Two of your pieces start in the front row, facing the rival’s front pieces. The other two start behind them, on your back border. Before the first move, each player bets how many of their own pieces will <b>cross the board</b>. The two bets can't add up to 4.</p>
-        <p>On your turn you do <b>one</b> of these two things:</p>
-        <p><b>Advance</b> one piece one step. If the square ahead is empty, you move into it. If you are at the far edge, the piece walks off and has <b>crossed</b>: +1 for you. If the square ahead is occupied, you can only enter it if your rank is <b>higher</b> than the piece there. Then you shove that piece, and every piece touching it in the direction you choose, one square sideways. A piece shoved off the side is <b>lost</b> and counts for nobody. With an equal or lower rank, your piece is blocked.</p>
-        <p><b>Sidestep</b> (you get 3 in the whole game): move one of your pieces one square left or right, into an empty square or swapping places with another of your pieces. Use it to rearrange your ranks, or to wait a turn.</p>
-        <p>Pieces never move backward, so the game always ends. If a player has no legal move they pass. If nobody can move, the pieces left on the board are stuck and count for nobody.</p>
-        <p>Whoever ends closest to their bet wins. Going over is as bad as falling short, and a tie in distance is a draw.</p>
-        <p>You are not forced to cross. Pieces you don't want to cross can be shoved off the side by your rival, who might do it if it helps them. And your rival can leave you no safe moves, so a piece you wanted to keep has to walk across.</p>
+        <p>Each player has 3 pieces, ranked 1 to 3 (the number you see on each one), on a 4×4 board. Two of your pieces start in the front row, facing the rival’s front pieces. The third starts behind them, on your back border.</p>
+        <p><b>Bets.</b> Before the first move you bet how many of your own pieces will <b>cross the board</b>. The rival bets second, and it sees your bet. The two bets can't add up to 3. Whoever ends closest to their own bet wins. Going over is as bad as falling short. If you are both the same distance away, you win, because you bet first.</p>
+        <p><b>Your turn.</b> You do <b>one</b> of these two things:</p>
+        <p><b>Advance</b> one piece one step. If the square ahead is empty, you move into it. If it is occupied, you can only enter it if your rank is <b>higher</b> than the piece there (a higher number beats a lower one). Then you choose how to push it out of the way:</p>
+        <p>• <b>Shove ← or →</b>: that piece, and every piece touching it in that direction, slides one square sideways. A piece shoved off the side is <b>lost</b> and counts for nobody. Use this to make your rival fall short.<br>
+           • <b>Swap through ⇅</b>: you take its square and it goes back to the square you just left, one step closer to its own goal. Use this to push the rival’s pieces across so they overshoot.</p>
+        <p>With an equal or lower rank, your piece is blocked.</p>
+        <p><b>Crossing.</b> A piece that lands on the far row crosses the board at once: +1 for its owner. That includes the rival’s piece if you swap it onto its own far row. Pieces can’t wait on the far row.</p>
+        <p><b>Sidestep</b> (you get 2 in the whole game): move one of your pieces one square left or right, into an empty square or swapping places with another of your own pieces. Use it to rearrange your ranks, or to wait a turn.</p>
+        <p>Pieces never move backward on their own, so the game always ends. If a player has no legal move they pass. If nobody can move, the pieces left on the board are stuck and count for nobody.</p>
+        <p>You are not forced to cross. But your rival can leave you no safe moves, so a piece you wanted to keep has to walk across.</p>
       </div>
     </details>
   </section>

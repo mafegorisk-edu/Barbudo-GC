@@ -1,5 +1,5 @@
 /*
-  Barbudo Shove v3: the screen.
+  BarbShove: the screen.
   Draws the board and the scoreboard, reacts to clicks, and asks game.js
   for the rules and for the rival's moves. All rules live in game.js.
 */
@@ -51,18 +51,32 @@
     return ' ' + parts.join(' and ') + ' ' + (lost.length > 1 ? 'are' : 'is') + ' shoved off the side and lost.';
   }
 
+  // Who crossed on this move (it can be the other player's piece if you swap it through).
+  function crossText(p, res) {
+    const mine = res.crossed[p];
+    const theirs = res.crossed[p === 'A' ? 'B' : 'A'];
+    const you = p === 'A';
+    let t = '';
+    if (mine) t += ' ' + (you ? 'Your piece' : 'Their piece') + ' crosses the board: +' + mine + ' for ' + (you ? 'you' : 'the rival') + '.';
+    if (theirs) t += ' ' + (you ? 'The rival\u2019s piece' : 'Your piece') + ' is pushed across the board: +' + theirs + ' for ' + (you ? 'the rival' : 'you') + '.';
+    return t;
+  }
+
   function describe(p, res) {
     const name = p === 'A' ? 'You' : 'Rival';
     const their = p === 'A' ? 'your' : 'their';
     const rank = G.rankOf(res.piece);
     const dirWord = res.dir < 0 ? 'left' : 'right';
-    if (res.kind === 'arrive') return name + ': ' + their + ' ' + rank + ' crosses the board. +1 for ' + (p === 'A' ? 'you' : 'the rival') + '.';
+    if (res.kind === 'arrive') return name + ': ' + their + ' ' + rank + ' steps onto the far row.' + crossText(p, res);
     if (res.kind === 'step') return name + ': ' + their + ' ' + rank + ' steps forward.';
     if (res.kind === 'slide') return name + ': ' + their + ' ' + rank + ' sidesteps ' + dirWord + '.';
     if (res.kind === 'swap') return name + ': ' + their + ' ' + rank + ' swaps places with ' + their + ' ' + G.rankOf(res.other) + '.';
+    if (res.kind === 'through') {
+      return name + ': ' + their + ' ' + rank + ' beats a ' + G.rankOf(res.beaten) + ' and swaps places with it.' + crossText(p, res);
+    }
     const base = name + ': ' + their + ' ' + rank + ' beats a ' + G.rankOf(res.beaten) + ' and shoves ' +
       res.chain + ' ' + plural(res.chain, 'piece', 'pieces') + ' ' + dirWord + '.';
-    return base + (res.lost.length ? lostText(res.lost) : ' Nobody is lost.');
+    return base + (res.lost.length ? lostText(res.lost) : ' Nobody is lost.') + crossText(p, res);
   }
 
   function needText(count, bid, remaining, isYou) {
@@ -131,14 +145,14 @@
         target = [m.r, m.c + m.dir];
         cls += ' side' + (res.kind === 'swap' ? ' swap' : '');
         glyph = res.kind === 'swap' ? '\u21c4' : (m.dir < 0 ? '\u2190' : '\u2192');
-      } else if (res.kind === 'arrive') {
-        target = [m.r, m.c];
-        cls += ' go edge';
-        glyph = '\u2191';
-      } else if (res.kind === 'step') {
+      } else if (res.kind === 'arrive' || res.kind === 'step') {
         target = [m.r - 1, m.c];
         cls += ' go';
         glyph = '\u2191';
+      } else if (res.kind === 'through') {
+        target = [m.r - 1, m.c];
+        cls += ' go through';
+        glyph = '\u21c5';
       } else {
         target = [m.r - 1, m.c];
         cls += ' go shove ' + (m.shove < 0 ? 'left' : 'right');
@@ -151,6 +165,16 @@
       btn.title = label;
       if (res.lost && res.lost.length) {
         const badge = el('span', 'badge', '\u2212' + res.lost.length);
+        badge.setAttribute('aria-hidden', 'true');
+        btn.appendChild(badge);
+      }
+      if (res.crossed && res.crossed.A) {
+        const badge = el('span', 'badge good', '+' + res.crossed.A);
+        badge.setAttribute('aria-hidden', 'true');
+        btn.appendChild(badge);
+      }
+      if (res.crossed && res.crossed.B) {
+        const badge = el('span', 'badge warn', '+' + res.crossed.B);
         badge.setAttribute('aria-hidden', 'true');
         btn.appendChild(badge);
       }
@@ -214,8 +238,15 @@
       if (res.kind === 'swap') return arrow + ' Swap places with your ' + G.rankOf(res.other) + ' (uses 1 sidestep)';
       return arrow + ' Sidestep into the empty square (uses 1 sidestep)';
     }
-    if (res.kind === 'arrive') return '↑ Cross the board (+1 for you)';
+    const extra = [];
+    if (res.crossed.A) extra.push('+' + res.crossed.A + ' for you');
+    if (res.crossed.B) extra.push('+' + res.crossed.B + ' for the rival: their piece is pushed across');
+    const cross = extra.length ? ' (' + extra.join('; ') + ')' : '';
+    if (res.kind === 'arrive') return '↑ Step forward and cross the board (+1 for you)';
     if (res.kind === 'step') return '↑ Step forward';
+    if (res.kind === 'through') {
+      return '⇅ Beat the ' + G.rankOf(res.beaten) + ' and swap places with it. It goes back one step' + cross;
+    }
     const arrow = m.shove < 0 ? '←' : '→';
     let label = '↑ Beat the ' + G.rankOf(res.beaten) + ' and shove ' + arrow + ' ';
     if (!res.lost.length) label += '(nobody lost)';
@@ -227,7 +258,7 @@
       if (theirs) parts.push(theirs + ' of theirs lost');
       label += '(' + parts.join(', ') + ')';
     }
-    return label;
+    return label + (res.crossed.A ? ' (+' + res.crossed.A + ' for you)' : '');
   }
 
   function renderActions() {
@@ -244,13 +275,13 @@
         (ahead ? 'the ' + ahead[1] + ' in front has the same rank or higher.' : 'it is blocked.')));
     }
     box.appendChild(el('p', 'blocked-note',
-      'Tap an arrow on the board. Gold arrows move forward; outlined arrows are sidesteps (' +
-      S.st.tokens.A + ' left). A red \u2212 means pieces would be lost.'));
+      'Tap an arrow on the board. Gold arrows move forward (⇅ swaps places with the piece you beat); outlined arrows are sidesteps (' +
+      S.st.tokens.A + ' left). A red \u2212 means pieces would be lost; a green + means you cross, an orange + means the rival is pushed across.'));
   }
 
   function renderStatus() {
     let text = '';
-    if (S.phase === 'bid') text = 'Choose your bid to start. You move first.';
+    if (S.phase === 'bid') text = 'Place your bet first. The rival will see it before it bets. You move first on the board.';
     else if (S.phase === 'play' && S.turn === 'A') text = S.sel ? 'Choose how to move it.' : 'Your turn. Tap one of your blue pieces.';
     else if (S.phase === 'play') text = 'The rival is thinking…';
     else text = 'Game over.';
@@ -269,13 +300,14 @@
     if (S.phase !== 'end') { box.hidden = true; return; }
     box.hidden = false;
     const o = G.outcome(S.a, S.b, S.ca, S.cb);
-    const title = o.winner === 'A' ? 'You win' : (o.winner === 'B' ? 'You lose' : 'Draw');
+    const title = o.winner === 'A' ? 'You win' : 'You lose';
     const youEnd = o.errA === 0 ? 'You hit your bid exactly'
       : (S.ca > S.a ? 'You went over by ' + o.errA : 'You fell short by ' + o.errA);
     const rivalEnd = o.errB === 0 ? 'the rival hit theirs exactly'
       : (S.cb > S.b ? 'the rival went over by ' + o.errB : 'the rival fell short by ' + o.errB);
     box.appendChild(el('h2', '', title));
     let msg = youEnd + ' and ' + rivalEnd + '.';
+    if (o.sameDistance) msg += ' Same distance from the bet, so the first bidder (you) wins.';
     if (S.stuck) msg += ' Nobody could move, so ' + S.stuck + ' ' + plural(S.stuck, 'piece stayed', 'pieces stayed') + ' on the board and counted for nobody.';
     box.appendChild(el('p', '', msg));
   }
@@ -301,7 +333,8 @@
   function play(p, move) {
     const res = G.applyMove(S.st, p, move);
     S.st = res.state;
-    if (res.arrived) { if (p === 'A') S.ca++; else S.cb++; }
+    S.ca += res.crossed.A;
+    S.cb += res.crossed.B;
     res.lost.forEach(function (owner) { S.lost[owner]++; });
     S.log.unshift(describe(p, res));
     S.sel = null;
@@ -332,7 +365,7 @@
     S.b = G.chooseRivalBid(S.a);
     S.phase = 'play';
     S.turn = 'A';
-    S.log = ['Bids: you ' + S.a + ', rival ' + S.b + '.'];
+    S.log = ['You bet ' + S.a + '. The rival saw it and bets ' + S.b + '.'];
     render();
   }
 
@@ -340,6 +373,7 @@
     const v = Number($('bid-range').value);
     $('bid-value').textContent = String(v);
     $('forbidden').textContent = String(G.FORBIDDEN_SUM - v);
+    $('forbidden').parentNode.hidden = (G.FORBIDDEN_SUM - v) < 0 || (G.FORBIDDEN_SUM - v) > G.PIECES_EACH;
   }
 
   function newGame() {

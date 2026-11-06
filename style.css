@@ -500,6 +500,15 @@ summary:focus-visible {
   transform: translate(-50%, 0);
 }
 
+/* swapping through: the arrow sits on the top of the occupied square */
+.arrow.through {
+  width: 2.2rem;
+  height: 2.2rem;
+  font-size: 1.25rem;
+  top: 0.15rem;
+  transform: translate(-50%, 0);
+}
+
 .badge {
   position: absolute;
   top: -0.45rem;
@@ -517,5 +526,9 @@ summary:focus-visible {
   display: grid;
   place-items: center;
 }
+
+/* crossing badges sit on the left so they don't cover the lost-pieces badge */
+.badge.good { right: auto; left: -0.45rem; background: #1f9d55; }
+.badge.warn { right: auto; left: -0.45rem; top: 1rem; background: #e07a1f; }
 
 .actions { min-height: 4.5rem; }

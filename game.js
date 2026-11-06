@@ -1,40 +1,44 @@
 /*
-  Barbudo Pushers v3: your score is how many of YOUR pieces make it across.
+  BarbShove: your score is how many of YOUR pieces cross the board.
   Rules and the rival's brain. No screen code in here, so it can be tested
-  with Node and reused later for a solver.
+  with Node. These are the same rules as the GamesmanPy version (barbshove.py).
 
-  Players: 'A' = the person at the keyboard (blue, moves up the board)
-           'B' = the rival (red, moves down the board)
+  Players: 'A' = the person at the keyboard (blue, moves up the board, bets first)
+           'B' = the rival (red, moves down the board, bets second)
 
   A cell is null or a string like 'A3' = owner 'A', rank 3.
   A state is { board, tokens: { A, B } }  (tokens = sidesteps left).
 
   Rules in short:
-  - 4x4 board, 4 pieces each, ranks 1-4, face to face.
+  - 4x4 board, 3 pieces each, ranks 1-3, face to face.
+  - Before playing, you bet how many of your own pieces will cross. Then the
+    rival bets (it sees your bet). The two bets may not add up to FORBIDDEN_SUM.
   - On your turn you move one piece forward one square, or spend a sidestep.
   - Moving into an occupied square needs a HIGHER rank than the piece there.
-    You shove that piece and the pieces touching it sideways. A piece shoved
-    off the side is LOST: it scores for nobody.
-  - A piece that walks off the far edge has ARRIVED: +1 for its owner.
-  - Before playing, each player bids how many of their own pieces will arrive.
-    Closest to the bid wins. The bids may not add up to FORBIDDEN_SUM.
-  - If a player cannot move they pass. If nobody can move, the pieces left
-    on the board are stuck and score for nobody.
+    Then you either SHOVE that piece and the pieces touching it sideways (a piece
+    shoved off the side is LOST and scores for nobody), or SWAP THROUGH: you take
+    its square and it goes back to the square you left.
+  - A piece that lands on the far row has CROSSED at once: +1 for its owner. That
+    includes an enemy piece you swap onto its own far row.
+  - Whoever ends closest to their own bet wins. Same distance: the first bidder
+    (you) wins.
+  - If a player cannot move they pass. If nobody can move, the pieces left on
+    the board are stuck and score for nobody.
 */
 (function (root) {
   'use strict';
 
   const ROWS = 4;
   const COLS = 4;
-  const PIECES_EACH = 4;
-  const START_TOKENS = 3;
-  const FORBIDDEN_SUM = 4; // the two bids may not add up to this
+  const PIECES_EACH = 3;
+  const START_TOKENS = 2;
+  const FORBIDDEN_SUM = 3; // the two bids may not add up to this
 
   // Starting layout. Blue's pieces are listed as [row, column, rank]; red's are
   // blue's turned half a turn around, so both sides are in the same situation.
   const START_LAYOUT = [
-    [2, 1, 2], [2, 2, 4], // front row (face to face)
-    [3, 0, 1], [3, 3, 3]  // back row (on the border behind)
+    [2, 1, 2], [2, 2, 3], // front row (face to face)
+    [3, 0, 1]             // back row (on the border behind)
   ];
 
   function newState(layout) {
@@ -67,7 +71,7 @@
   }
 
   // Moves:
-  //  { type:'fwd',  r, c, shove }   shove 0 = free square or far edge; -1 / +1 = shove that way
+  //  { type:'fwd',  r, c, shove }   shove 0 = free square; -1 / +1 = shove that way; 2 = swap through
   //  { type:'side', r, c, dir }     dir -1 or +1, costs one token
   function legalMoves(st, p) {
     const board = st.board;
@@ -83,6 +87,7 @@
         } else if (rankOf(cell) > rankOf(board[ahead][c])) {
           moves.push({ type: 'fwd', r: r, c: c, shove: -1 });
           moves.push({ type: 'fwd', r: r, c: c, shove: 1 });
+          moves.push({ type: 'fwd', r: r, c: c, shove: 2 }); // swap through
         }
         if (st.tokens[p] > 0) {
           [-1, 1].forEach(function (d) {
@@ -97,15 +102,31 @@
     return moves;
   }
 
-  // Returns { state, arrived, lost, kind, chain, dir, piece, other, beaten }
-  //   kind:    'step' | 'arrive' | 'shove' | 'slide' | 'swap'
-  //   arrived: true if the moving piece walked off the far edge (+1 for p)
+  // Returns { state, crossed, lost, kind, chain, dir, piece, other, beaten }
+  //   kind:    'step' | 'arrive' | 'shove' | 'through' | 'slide' | 'swap'
+  //   crossed: { A, B } pieces that crossed this move (each is +1 for its owner)
   //   lost:    owners of pieces shoved off the side (score for nobody)
+  function farRow(owner) { return owner === 'A' ? 0 : ROWS - 1; }
+
+  // If the piece on this square stands on its owner's far row, it crosses now.
+  function settle(board, r, c, crossed) {
+    const cell = board[r][c];
+    if (!cell) return false;
+    const owner = cell[0];
+    if (r === farRow(owner)) {
+      board[r][c] = null;
+      crossed[owner] += 1;
+      return true;
+    }
+    return false;
+  }
+
   function applyMove(st, p, move) {
     const ns = cloneState(st);
     const nb = ns.board;
     const r = move.r, c = move.c;
     const piece = nb[r][c];
+    const crossed = { A: 0, B: 0 };
 
     if (move.type === 'side') {
       const nc = c + move.dir;
@@ -113,7 +134,7 @@
       nb[r][nc] = piece;
       nb[r][c] = target;
       ns.tokens[p] -= 1;
-      return { state: ns, arrived: false, lost: [], kind: target ? 'swap' : 'slide', chain: 0, dir: move.dir, piece: piece, other: target };
+      return { state: ns, crossed: crossed, lost: [], kind: target ? 'swap' : 'slide', chain: 0, dir: move.dir, piece: piece, other: target };
     }
 
     const ahead = r + forward(p);
@@ -121,11 +142,23 @@
     nb[r][c] = null;
 
     if (ahead < 0 || ahead >= ROWS) {
-      return { state: ns, arrived: true, lost: [], kind: 'arrive', chain: 0, dir: 0, piece: piece };
+      crossed[p] += 1;
+      return { state: ns, crossed: crossed, lost: [], kind: 'arrive', chain: 0, dir: 0, piece: piece };
     }
     if (!nb[ahead][c]) {
       nb[ahead][c] = piece;
-      return { state: ns, arrived: false, lost: [], kind: 'step', chain: 0, dir: 0, piece: piece };
+      const crossedNow = settle(nb, ahead, c, crossed);
+      return { state: ns, crossed: crossed, lost: [], kind: crossedNow ? 'arrive' : 'step', chain: 0, dir: 0, piece: piece };
+    }
+
+    if (s === 2) {
+      // swap through: we take the square, the piece that was there goes back to ours
+      const beaten = nb[ahead][c];
+      nb[ahead][c] = piece;
+      nb[r][c] = beaten;
+      settle(nb, ahead, c, crossed);
+      settle(nb, r, c, crossed);
+      return { state: ns, crossed: crossed, lost: [], kind: 'through', chain: 1, dir: 0, piece: piece, beaten: beaten };
     }
 
     const line = [];
@@ -142,7 +175,8 @@
       else nb[ahead][nx] = q.cell;
     });
     nb[ahead][c] = piece;
-    return { state: ns, arrived: false, lost: lost, kind: 'shove', chain: line.length, dir: s, piece: piece, beaten: line[0].cell };
+    settle(nb, ahead, c, crossed);
+    return { state: ns, crossed: crossed, lost: lost, kind: 'shove', chain: line.length, dir: s, piece: piece, beaten: line[0].cell };
   }
 
   // Who moves after `p` has just moved?
@@ -162,14 +196,12 @@
     return valid;
   }
 
-  // Whoever ends closest to their own bid wins. Same distance is a draw.
+  // Whoever ends closest to their own bid wins. Same distance: the first bidder
+  // (player A, you) wins.
   function outcome(a, b, ca, cb) {
     const errA = Math.abs(a - ca);
     const errB = Math.abs(b - cb);
-    let winner = 'draw';
-    if (errA < errB) winner = 'A';
-    else if (errB < errA) winner = 'B';
-    return { errA: errA, errB: errB, winner: winner };
+    return { errA: errA, errB: errB, winner: errA <= errB ? 'A' : 'B', sameDistance: errA === errB };
   }
 
   // ---- Exact solver (used offline to study the game, and for the rival's bid) ----
@@ -197,7 +229,7 @@
       let best = mover === 'A' ? -2 : 2;
       for (let i = 0; i < ms.length; i++) {
         const r = applyMove(st, mover, ms[i]);
-        const v = go(r.state, other(mover), ca + (mover === 'A' && r.arrived ? 1 : 0), cb + (mover === 'B' && r.arrived ? 1 : 0));
+        const v = go(r.state, other(mover), ca + r.crossed.A, cb + r.crossed.B);
         if (mover === 'A') { if (v > best) best = v; if (best === 1) break; }
         else { if (v < best) best = v; if (best === -1) break; }
       }
@@ -242,7 +274,7 @@
     for (let i = 0; i < moves.length; i++) {
       const res = applyMove(st, mover, moves[i]);
       const v = search(bids, res.state, other(mover), depth - 1,
-        ca + (mover === 'A' && res.arrived ? 1 : 0), cb + (mover === 'B' && res.arrived ? 1 : 0), alpha, beta);
+        ca + res.crossed.A, cb + res.crossed.B, alpha, beta);
       if (mover === 'B') { if (v > best) best = v; alpha = Math.max(alpha, best); }
       else { if (v < best) best = v; beta = Math.min(beta, best); }
       if (beta <= alpha) break;
@@ -256,18 +288,22 @@
     let best = -1e9, pick = moves[0];
     moves.forEach(function (m) {
       const res = applyMove(st, 'B', m);
-      const v = search(bids, res.state, 'A', (depth || 6) - 1, scores.ca, scores.cb + (res.arrived ? 1 : 0), -1e9, 1e9)
+      const v = search(bids, res.state, 'A', (depth || 6) - 1, scores.ca + res.crossed.A, scores.cb + res.crossed.B, -1e9, 1e9)
         + Math.random() * 0.05;
       if (v > best) { best = v; pick = m; }
     });
     return pick;
   }
 
-  // Simple default; the page can replace this with a smarter choice.
+  // The rival bets second and sees your bet. These replies come from solving the
+  // whole game (see barbshove.py): where red can win it picks a winning reply, and
+  // where it cannot it picks the reply that holds out the longest.
+  const RIVAL_REPLY = { 0: [1, 2], 1: [3], 2: [2], 3: [3] };
+
   function chooseRivalBid(a) {
     const valid = validRivalBids(a);
-    const mid = valid.filter(function (b) { return b >= 1 && b <= 3; });
-    const pool = mid.length ? mid : valid;
+    const wanted = (RIVAL_REPLY[a] || []).filter(function (b) { return valid.indexOf(b) >= 0; });
+    const pool = wanted.length ? wanted : valid;
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
