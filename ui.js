@@ -12,6 +12,7 @@
 
   // ---- State ----
   let S;
+  let MODE = 'bot'; // 'bot' = play the rival, 'two' = two people on one screen
 
   function freshState() {
     return {
@@ -40,27 +41,34 @@
 
   function plural(n, one, many) { return n === 1 ? one : many; }
 
+  function isHuman(p) { return MODE === 'two' || p === 'A'; }
+  function colorName(p) { return p === 'A' ? 'Blue' : 'Red'; }
+  // Names used in messages. Against the bot: "You" / "Rival". Two players: "Blue" / "Red".
+  function nameOf(p) { return MODE === 'two' ? colorName(p) : (p === 'A' ? 'You' : 'Rival'); }
+  function theirOf(p) { return MODE === 'two' ? colorName(p) + '\u2019s' : (p === 'A' ? 'your' : 'their'); }
+  function fwd(p) { return p === 'A' ? -1 : 1; }
+
   // ---- Messages ----
   function lostText(lost) {
     if (!lost.length) return '';
-    const yours = lost.filter(function (o) { return o === 'A'; }).length;
-    const theirs = lost.length - yours;
+    const a = lost.filter(function (o) { return o === 'A'; }).length;
+    const b = lost.length - a;
     const parts = [];
-    if (yours) parts.push(yours + ' of yours');
-    if (theirs) parts.push(theirs + ' of the rival’s');
+    if (a) parts.push(a + ' ' + (MODE === 'two' ? 'blue' : 'of yours'));
+    if (b) parts.push(b + ' ' + (MODE === 'two' ? 'red' : 'of the rival\u2019s'));
     return ' ' + parts.join(' and ') + ' ' + (lost.length > 1 ? 'are' : 'is') + ' shoved off the side and lost.';
   }
 
   // Who crossed on this move (and which exit closed).
   function crossText(p, res) {
-    const you = p === 'A';
-    if (res.crossed[p]) return ' ' + (you ? 'Your piece' : 'Their piece') + ' crosses the board: +1 for ' + (you ? 'you' : 'the rival') + '. That exit is now closed for everybody.';
-    return '';
+    if (!res.crossed[p]) return '';
+    const who = MODE === 'two' ? colorName(p) : (p === 'A' ? 'you' : 'the rival');
+    return ' A piece crosses the board: +1 for ' + who + '. That exit is now closed for everybody.';
   }
 
   function describe(p, res) {
-    const name = p === 'A' ? 'You' : 'Rival';
-    const their = p === 'A' ? 'your' : 'their';
+    const name = nameOf(p);
+    const their = theirOf(p);
     const rank = G.rankOf(res.piece);
     const dirWord = res.dir < 0 ? 'left' : 'right';
     if (res.kind === 'arrive') return name + ': ' + their + ' ' + rank + ' steps onto the far row.' + crossText(p, res);
@@ -72,26 +80,30 @@
     return base + (res.lost.length ? lostText(res.lost) : ' Nobody is lost.') + crossText(p, res);
   }
 
-  function needText(count, bid, remaining, isYou) {
-    const subj = isYou ? 'You' : 'The rival';
+  function needText(count, bid, remaining, owner) {
+    const two = MODE === 'two';
+    const isYou = !two && owner === 'A';
+    const subj = two ? colorName(owner) : (isYou ? 'You' : 'The rival');
     const have = isYou ? 'have' : 'has';
+    const poss = two ? colorName(owner) + '\u2019s' : (isYou ? 'your' : 'their');
     if (count > bid) return { text: subj + ' ' + have + ' already gone over by ' + (count - bid) + '.', cls: 'over' };
     if (count === bid) {
-      return { text: isYou ? 'Exactly on your bid. Don’t cross any more.' : 'Exactly on their bid.', cls: 'exact' };
+      return { text: isYou ? 'Exactly on your bid. Don\u2019t cross any more.' : subj + ' ' + (two ? 'is' : 'is') + ' exactly on ' + (two ? 'the' : 'their') + ' bid.', cls: 'exact' };
     }
     const need = bid - count;
     if (remaining < need) {
-      return { text: (isYou ? 'You can' : 'They can') + ' no longer reach ' + (isYou ? 'your' : 'their') + ' bid: only ' + remaining + ' ' + plural(remaining, 'piece is', 'pieces are') + ' left.', cls: 'over' };
+      return { text: subj + ' ' + (isYou ? 'can' : 'can') + ' no longer reach ' + poss + ' bid: only ' + remaining + ' ' + plural(remaining, 'exit or piece is', 'exits or pieces are') + ' left.', cls: 'over' };
     }
-    return { text: (isYou ? 'You need ' : 'They need ') + need + ' more to cross.', cls: '' };
+    return { text: subj + ' ' + (isYou ? 'need' : 'needs') + ' ' + need + ' more to cross.', cls: '' };
   }
 
   // ---- Drawing ----
   function renderBoard() {
     const board = $('board');
     board.textContent = '';
-    const myTurn = S.phase === 'play' && S.turn === 'A';
-    const mine = myTurn ? G.legalMoves(S.st, 'A') : [];
+    const myTurn = S.phase === 'play' && isHuman(S.turn);
+    const mover = S.turn;
+    const mine = myTurn ? G.legalMoves(S.st, mover) : [];
     const cellEls = [];
 
     for (let r = 0; r < G.ROWS; r++) {
@@ -101,11 +113,11 @@
         cellEls[r].push(cell);
         const v = S.st.board[r][c];
         if (v) {
-          const isYou = v[0] === 'A';
-          const piece = el('button', 'piece ' + (isYou ? 'blue' : 'red'), v[1]);
+          const isYou = v[0] === mover;
+          const piece = el('button', 'piece ' + (v[0] === 'A' ? 'blue' : 'red'), v[1]);
           piece.type = 'button';
           piece.setAttribute('aria-label',
-            (isYou ? 'Blue piece' : 'Red piece') + ', rank ' + v[1] + ', row ' + (r + 1) + ', column ' + (c + 1));
+            (v[0] === 'A' ? 'Blue piece' : 'Red piece') + ', rank ' + v[1] + ', row ' + (r + 1) + ', column ' + (c + 1));
           const movable = isYou && mine.some(function (m) { return m.r === r && m.c === c; });
           if (movable) {
             piece.classList.add('can-move');
@@ -143,26 +155,27 @@
 
   // Arrows drawn on the board, on the square each move leads to.
   function renderArrows(cellEls) {
-    if (!(S.phase === 'play' && S.turn === 'A' && S.sel)) return;
+    if (!(S.phase === 'play' && isHuman(S.turn) && S.sel)) return;
     const sel = S.sel;
-    const moves = G.legalMoves(S.st, 'A').filter(function (m) { return m.r === sel.r && m.c === sel.c; });
+    const P = S.turn, F = fwd(P);
+    const moves = G.legalMoves(S.st, P).filter(function (m) { return m.r === sel.r && m.c === sel.c; });
     moves.forEach(function (m) {
-      const res = G.applyMove(S.st, 'A', m);
+      const res = G.applyMove(S.st, P, m);
       let target, cls = 'arrow', glyph;
       if (m.type === 'side') {
         target = [m.r, m.c + m.dir];
         cls += ' side' + (res.kind === 'swap' ? ' swap' : '');
         glyph = res.kind === 'swap' ? '\u21c4' : (m.dir < 0 ? '\u2190' : '\u2192');
       } else if (res.kind === 'arrive' || res.kind === 'step') {
-        target = [m.r - 1, m.c];
+        target = [m.r + F, m.c];
         cls += ' go';
         glyph = '\u2191';
       } else {
-        target = [m.r - 1, m.c];
+        target = [m.r + F, m.c];
         cls += ' go shove ' + (m.shove < 0 ? 'left' : 'right');
         glyph = m.shove < 0 ? '\u2190' : '\u2192';
       }
-      const label = moveLabel(m, res);
+      const label = moveLabel(m, res, P);
       const btn = el('button', cls, glyph);
       btn.type = 'button';
       btn.setAttribute('aria-label', label);
@@ -172,12 +185,12 @@
         badge.setAttribute('aria-hidden', 'true');
         btn.appendChild(badge);
       }
-      if (res.crossed && res.crossed.A) {
-        const badge = el('span', 'badge good', '+' + res.crossed.A);
+      if (res.crossed && res.crossed[P]) {
+        const badge = el('span', 'badge good', '+' + res.crossed[P]);
         badge.setAttribute('aria-hidden', 'true');
         btn.appendChild(badge);
       }
-      btn.addEventListener('click', function () { play('A', m); });
+      btn.addEventListener('click', function () { play(P, m); });
       btn.addEventListener('mouseenter', function () { showHint(label); });
       btn.addEventListener('focus', function () { showHint(label); });
       btn.addEventListener('mouseleave', renderActions);
@@ -193,10 +206,10 @@
   }
 
   function renderScoreCard(id, name, swatch, bid, count, owner) {
-    const isYou = owner === 'A';
+    const isYou = MODE !== 'two' && owner === 'A';
     const card = $(id);
     card.textContent = '';
-    if (S.phase === 'bid') { card.hidden = true; return; }
+    if (S.phase === 'bid' || S.phase === 'bid2') { card.hidden = true; return; }
     card.hidden = false;
 
     const head = el('div', 'score-head');
@@ -223,7 +236,7 @@
     card.appendChild(pips);
 
     const onBoard = G.countPieces(S.st.board, owner);
-    const need = needText(count, bid, onBoard, isYou);
+    const need = needText(count, bid, Math.min(onBoard, G.openExits(S.st)), owner);
     card.appendChild(el('p', 'need ' + need.cls, need.text));
 
     card.appendChild(el('p', 'tokens',
@@ -231,54 +244,61 @@
       S.st.tokens[owner] + ' of ' + G.START_TOKENS + ' sidestep left'));
   }
 
-  function moveLabel(m, res) {
+  function moveLabel(m, res, p) {
+    const two = MODE === 'two';
+    const own = two ? colorName(p) + '\u2019s' : 'your';
+    const gain = two ? colorName(p) : 'you';
     if (m.type === 'side') {
-      const arrow = m.dir < 0 ? '←' : '→';
-      if (res.kind === 'swap') return arrow + ' Swap places with your ' + G.rankOf(res.other) + ' (uses 1 sidestep)';
-      return arrow + ' Sidestep into the empty square (uses 1 sidestep)';
+      const arrow = m.dir < 0 ? '\u2190' : '\u2192';
+      if (res.kind === 'swap') return arrow + ' Swap places with ' + own + ' ' + G.rankOf(res.other) + ' (uses the sidestep)';
+      return arrow + ' Sidestep into the empty square (uses the sidestep)';
     }
-    const extra = [];
-    if (res.crossed.A) extra.push('+' + res.crossed.A + ' for you');
-    const cross = extra.length ? ' (' + extra.join('; ') + ')' : '';
-    if (res.kind === 'arrive') return '↑ Step forward and cross the board (+1 for you, closes this exit for both)';
-    if (res.kind === 'step') return '↑ Step forward';
-    const arrow = m.shove < 0 ? '←' : '→';
-    let label = '↑ Beat the ' + G.rankOf(res.beaten) + ' and shove ' + arrow + ' ';
+    if (res.kind === 'arrive') return '\u2191 Step forward and cross the board (+1 for ' + gain + ', closes this exit for both)';
+    if (res.kind === 'step') return '\u2191 Step forward';
+    const arrow = m.shove < 0 ? '\u2190' : '\u2192';
+    let label = '\u2191 Beat the ' + G.rankOf(res.beaten) + ' and shove ' + arrow + ' ';
     if (!res.lost.length) label += '(nobody lost)';
     else {
-      const yours = res.lost.filter(function (o) { return o === 'A'; }).length;
-      const theirs = res.lost.length - yours;
+      const mineLost = res.lost.filter(function (o) { return o === p; }).length;
+      const theirsLost = res.lost.length - mineLost;
       const parts = [];
-      if (yours) parts.push(yours + ' of yours lost');
-      if (theirs) parts.push(theirs + ' of theirs lost');
+      if (mineLost) parts.push(mineLost + (two ? ' of ' + colorName(p).toLowerCase() : ' of yours') + ' lost');
+      if (theirsLost) parts.push(theirsLost + (two ? ' of ' + colorName(p === 'A' ? 'B' : 'A').toLowerCase() : ' of theirs') + ' lost');
       label += '(' + parts.join(', ') + ')';
     }
-    return label + (res.crossed.A ? ' (+' + res.crossed.A + ' for you)' : '');
+    return label + (res.crossed[p] ? ' (+' + res.crossed[p] + ' for ' + gain + ', closes that exit)' : '');
   }
 
   function renderActions() {
     const box = $('actions');
     box.textContent = '';
-    if (!(S.phase === 'play' && S.turn === 'A' && S.sel)) return;
+    if (!(S.phase === 'play' && isHuman(S.turn) && S.sel)) return;
     const sel = S.sel;
-    const mine = G.legalMoves(S.st, 'A').filter(function (m) { return m.r === sel.r && m.c === sel.c; });
+    const P = S.turn;
+    const mine = G.legalMoves(S.st, P).filter(function (m) { return m.r === sel.r && m.c === sel.c; });
     const hasFwd = mine.some(function (m) { return m.type === 'fwd'; });
     if (!hasFwd) {
-      const ahead = S.st.board[sel.r - 1] && S.st.board[sel.r - 1][sel.c];
+      const ahead = S.st.board[sel.r + fwd(P)] && S.st.board[sel.r + fwd(P)][sel.c];
       box.appendChild(el('p', 'blocked-note',
         'This ' + S.st.board[sel.r][sel.c][1] + ' can\u2019t advance: ' +
         (ahead ? 'the ' + ahead[1] + ' in front has the same rank or higher.' : 'it is blocked.')));
     }
     box.appendChild(el('p', 'blocked-note',
       'Tap an arrow on the board. Gold arrows move forward; outlined arrows are the sidestep (' +
-      S.st.tokens.A + ' left). A red \u2212 means pieces would be lost; a green + means you cross and close that exit.'));
+      S.st.tokens[P] + ' left). A red \u2212 means pieces would be lost; a green + means that piece crosses and closes that exit.'));
   }
 
   function renderStatus() {
     let text = '';
-    if (S.phase === 'bid') text = 'Place your bet first. The rival will see it before it bets. You move first on the board.';
-    else if (S.phase === 'play' && S.turn === 'A') text = S.sel ? 'Choose how to move it.' : 'Your turn. Tap one of your blue pieces.';
-    else if (S.phase === 'play') text = 'The rival is thinking…';
+    const two = MODE === 'two';
+    if (S.phase === 'bid') text = two ? 'Blue bets first. Red will see the bet before it bets. Blue moves first on the board.'
+      : 'Place your bet first. The rival will see it before it bets. You move first on the board.';
+    else if (S.phase === 'bid2') text = 'Red\u2019s turn to bet. Blue has bet ' + S.a + '.';
+    else if (S.phase === 'play' && isHuman(S.turn)) {
+      const who = two ? colorName(S.turn) + '\u2019s turn. ' : 'Your turn. ';
+      text = S.sel ? 'Choose how to move it.' : who + 'Tap one of ' + (two ? colorName(S.turn).toLowerCase() : 'your blue') + ' pieces.';
+    }
+    else if (S.phase === 'play') text = 'The rival is thinking\u2026';
     else text = 'Game over.';
     $('status').textContent = text;
   }
@@ -294,25 +314,29 @@
     box.textContent = '';
     if (S.phase !== 'end') { box.hidden = true; return; }
     box.hidden = false;
+    const two = MODE === 'two';
     const o = G.outcome(S.a, S.b, S.ca, S.cb);
-    const title = o.winner === 'A' ? 'You win' : (o.winner === 'B' ? 'You lose' : 'Tie');
-    const youEnd = o.errA === 0 ? 'You hit your bid exactly'
-      : (S.ca > S.a ? 'You went over by ' + o.errA : 'You fell short by ' + o.errA);
-    const rivalEnd = o.errB === 0 ? 'the rival hit theirs exactly'
-      : (S.cb > S.b ? 'the rival went over by ' + o.errB : 'the rival fell short by ' + o.errB);
+    const title = o.winner === 'T' ? 'Tie'
+      : (two ? colorName(o.winner) + ' wins' : (o.winner === 'A' ? 'You win' : 'You lose'));
+    function ending(p, err, count, bid) {
+      const who = two ? colorName(p) : (p === 'A' ? 'you' : 'the rival');
+      if (err === 0) return who + ' hit ' + (two || p === 'B' ? 'their' : 'your') + ' bid exactly';
+      return who + (count > bid ? ' went over by ' : ' fell short by ') + err;
+    }
     box.appendChild(el('h2', '', title));
-    let msg = youEnd + ' and ' + rivalEnd + '.';
+    let msg = ending('A', o.errA, S.ca, S.a) + ' and ' + ending('B', o.errB, S.cb, S.b) + '.';
+    msg = msg.charAt(0).toUpperCase() + msg.slice(1);
     if (o.sameDistance) msg += ' Same distance from the bet: a tie.';
     if (S.stuck) msg += ' Nobody could move, so ' + S.stuck + ' ' + plural(S.stuck, 'piece stayed', 'pieces stayed') + ' on the board and counted for nobody.';
     box.appendChild(el('p', '', msg));
   }
 
   function render() {
-    $('bid-box').hidden = S.phase !== 'bid';
+    $('bid-box').hidden = S.phase !== 'bid' && S.phase !== 'bid2';
     renderExits();
     renderBoard();
-    renderScoreCard('you', 'You (blue)', 'blue', S.a, S.ca, 'A');
-    renderScoreCard('rival', 'Rival (red)', 'red', S.b, S.cb, 'B');
+    renderScoreCard('you', MODE === 'two' ? 'Blue' : 'You (blue)', 'blue', S.a, S.ca, 'A');
+    renderScoreCard('rival', MODE === 'two' ? 'Red' : 'Rival (red)', 'red', S.b, S.cb, 'B');
     renderActions();
     renderResult();
     renderStatus();
@@ -321,7 +345,7 @@
 
   // ---- Actions ----
   function selectPiece(r, c) {
-    if (S.phase !== 'play' || S.turn !== 'A') return;
+    if (S.phase !== 'play' || !isHuman(S.turn)) return;
     S.sel = (S.sel && S.sel.r === r && S.sel.c === c) ? null : { r: r, c: c };
     render();
   }
@@ -341,11 +365,11 @@
       S.stuck = nx.stuck;
       if (nx.stuck) S.log.unshift('Nobody can move. The ' + nx.stuck + ' pieces left on the board count for nobody.');
     } else {
-      if (nx.turn === p) S.log.unshift(p === 'A' ? 'The rival has no moves and passes.' : 'You have no moves and pass.');
+      if (nx.turn === p) S.log.unshift(MODE === 'two' ? (p === 'A' ? 'Red' : 'Blue') + ' has no moves and passes.' : (p === 'A' ? 'The rival has no moves and passes.' : 'You have no moves and pass.'));
       S.turn = nx.turn;
     }
     render();
-    if (S.phase === 'play' && S.turn === 'B') scheduleRival();
+    if (S.phase === 'play' && S.turn === 'B' && MODE === 'bot') scheduleRival();
   }
 
   function scheduleRival() {
@@ -357,7 +381,25 @@
   }
 
   function startGame() {
-    S.a = Number($('bid-range').value);
+    const v = Number($('bid-range').value);
+    if (MODE === 'two') {
+      if (S.phase === 'bid') {
+        S.a = v;
+        S.phase = 'bid2';
+        $('bid-range').value = Math.min(G.PIECES_EACH, 1);
+        updateForbidden();
+        render();
+        return;
+      }
+      if (S.a + v === G.FORBIDDEN_SUM) return;
+      S.b = v;
+      S.phase = 'play';
+      S.turn = 'A';
+      S.log = ['Blue bet ' + S.a + '. Red saw it and bet ' + S.b + '.'];
+      render();
+      return;
+    }
+    S.a = v;
     S.b = G.chooseRivalBid(S.a);
     S.phase = 'play';
     S.turn = 'A';
@@ -368,8 +410,39 @@
   function updateForbidden() {
     const v = Number($('bid-range').value);
     $('bid-value').textContent = String(v);
-    $('forbidden').textContent = String(G.FORBIDDEN_SUM - v);
-    $('forbidden').parentNode.hidden = (G.FORBIDDEN_SUM - v) < 0 || (G.FORBIDDEN_SUM - v) > G.PIECES_EACH;
+    const two = MODE === 'two';
+    const red = two && S && S.phase === 'bid2';
+    const hint = $('bid-hint');
+    const go = $('bid-go');
+    const sum = G.FORBIDDEN_SUM;
+    go.disabled = false;
+    if (red) {
+      $('bid-label').textContent = 'Red: how many of your 3 pieces will cross the board?';
+      const bad = sum - S.a;
+      const badOk = bad >= 0 && bad <= G.PIECES_EACH;
+      hint.textContent = 'Blue bet ' + S.a + '.' + (badOk ? ' Red can\u2019t bet ' + bad + ', because the two bets can\u2019t add up to ' + sum + '.' : '');
+      if (S.a + v === sum) { go.disabled = true; hint.textContent += ' (Pick a different number.)'; }
+      go.textContent = 'Place Red\u2019s bet and start';
+    } else {
+      $('bid-label').textContent = (two ? 'Blue: h' : 'H') + 'ow many of your 3 pieces will cross the board?';
+      const bad = sum - v;
+      const badOk = bad >= 0 && bad <= G.PIECES_EACH;
+      hint.textContent = (two ? 'Blue bets first and Red sees the bet. ' : 'You bet first and the rival sees your bet. ') +
+        (badOk ? (two ? 'Red' : 'The rival') + ' can\u2019t bet ' + bad + ', because the two bets can\u2019t add up to ' + sum + ' (the number of exits).' : '');
+      go.textContent = two ? 'Place Blue\u2019s bet' : 'Place bet and start';
+    }
+  }
+
+  function setMode(m) {
+    MODE = m;
+    $('mode-bot').setAttribute('aria-pressed', String(m === 'bot'));
+    $('mode-two').setAttribute('aria-pressed', String(m === 'two'));
+    $('mode-bot').classList.toggle('on', m === 'bot');
+    $('mode-two').classList.toggle('on', m === 'two');
+    $('board-note').textContent = m === 'two'
+      ? 'Blue moves up and goes first. Red moves down. Pass the device back and forth. The number on each piece is its rank: only a higher rank can push a piece out of the way.'
+      : 'You are blue and move up. The rival is red and moves down. The number on each piece is its rank: only a higher rank can push a piece out of the way.';
+    newGame();
   }
 
   function newGame() {
@@ -384,6 +457,8 @@
   $('bid-range').addEventListener('input', updateForbidden);
   $('bid-go').addEventListener('click', startGame);
   $('new-game').addEventListener('click', newGame);
+  $('mode-bot').addEventListener('click', function () { setMode('bot'); });
+  $('mode-two').addEventListener('click', function () { setMode('two'); });
 
-  newGame();
+  setMode('bot');
 })();

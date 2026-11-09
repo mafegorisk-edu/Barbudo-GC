@@ -539,3 +539,10 @@ summary:focus-visible {
 .exits .lamp { font-weight: 700; color: var(--muted, #6b7280); }
 .exits .lamp.closed { color: #b91c1c; }
 .cell.shut { background-image: repeating-linear-gradient(45deg, rgba(185,28,28,.22) 0 6px, transparent 6px 12px); }
+
+
+/* Mode switch */
+.top-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.mode { display: inline-flex; border-radius: 999px; overflow: hidden; box-shadow: inset 0 0 0 2px var(--ink); }
+.mode-btn { font: inherit; font-weight: 700; padding: 8px 14px; border: 0; background: transparent; color: var(--ink); cursor: pointer; }
+.mode-btn.on { background: var(--saffron); color: #161b3d; }

@@ -16,7 +16,13 @@
       <h1>BarbShove</h1>
       <p class="tagline">Bet how many of your pieces will cross the board. Not one more, not one fewer. But there are only 4 exits, and they are shared.</p>
     </div>
-    <button type="button" id="new-game" class="btn primary">New game</button>
+    <div class="top-actions">
+      <div class="mode" role="group" aria-label="Game mode">
+        <button type="button" id="mode-bot" class="mode-btn on" aria-pressed="true">Play the bot</button>
+        <button type="button" id="mode-two" class="mode-btn" aria-pressed="false">2 players</button>
+      </div>
+      <button type="button" id="new-game" class="btn primary">New game</button>
+    </div>
   </header>
 
   <main class="layout">
@@ -25,18 +31,18 @@
       <div id="board" class="board" role="group" aria-label="5 rows by 4 columns board"></div>
       <div id="exits-bottom" class="exits" aria-hidden="true"></div>
       <p id="exits-count" class="board-note"></p>
-      <p class="board-note">You are blue and move up. The rival is red and moves down. The number on each piece is its rank: only a higher rank can push a piece out of the way.</p>
+      <p id="board-note" class="board-note">You are blue and move up. The rival is red and moves down. The number on each piece is its rank: only a higher rank can push a piece out of the way.</p>
       <div id="actions" class="actions" aria-label="Possible moves"></div>
     </section>
 
     <section class="panel-col" aria-label="Scoreboard">
       <div id="bid-box" class="card bid-box">
-        <label for="bid-range" class="bid-label">How many of your 3 pieces will cross the board?</label>
+        <label for="bid-range" id="bid-label" class="bid-label">How many of your 3 pieces will cross the board?</label>
         <div class="bid-row">
           <input type="range" id="bid-range" min="0" max="3" value="2" step="1">
           <output id="bid-value" for="bid-range" class="bid-number">2</output>
         </div>
-        <p class="hint">You bet first and the rival sees your bet. The rival can't bet <strong id="forbidden">1</strong>, because the two bets can't add up to 4, the number of exits.</p>
+        <p id="bid-hint" class="hint"></p>
         <button type="button" id="bid-go" class="btn primary">Place bet and start</button>
       </div>
 
@@ -57,6 +63,7 @@
         <p>Each player has 3 pieces, ranked 1 to 3 (the number you see on each one), on a 5×4 board. Two of your pieces start in your front row; the third starts behind them on your back border.</p>
         <p><b>Shared exits.</b> Each column has <b>one</b> exit, shared by both players: the far row of that column. The first piece to cross there closes the exit for everybody. A closed exit can't be entered. So at most 4 pieces can cross in the whole game. You are fighting over them, just like the tricks in Barbudo.</p>
         <p><b>Bets.</b> Before the first move you bet how many of your own pieces will <b>cross the board</b>. The rival bets second, and it sees your bet. The two bets can't add up to 4 (the number of exits). Whoever ends closest to their own bet wins. Going over is as bad as falling short. Same distance: tie.</p>
+        <p><b>Two players.</b> Pick “2 players” at the top to play against a friend on the same screen: blue bets and moves first, then red bets (seeing blue’s bet), and you take turns tapping pieces.</p>
         <p><b>Your turn.</b> You do <b>one</b> of these two things:</p>
         <p><b>Advance</b> one piece one step. If the square ahead is empty, you move into it. If it is occupied, you can only enter it if your rank is <b>higher</b> than the piece there. Then you <b>shove ← or →</b>: that piece, and every piece touching it in that direction, slides one square sideways. A piece shoved off the side is <b>lost</b> and counts for nobody. With an equal or lower rank, your piece is blocked.</p>
         <p><b>Crossing.</b> A piece that steps onto the far row crosses at once: +1 for its owner, and that exit closes. Pieces can't wait on the far row.</p>
